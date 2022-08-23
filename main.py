@@ -359,7 +359,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         # image_file_name = os.path.basename(self.filePath)
         # saved_file_name = os.path.splitext(image_file_name)[0]
         savedPath = self.save_file_dialog(remove_ext=False)
-        self.save_labels(savedPath)
+        if savedPath:
+            self.save_labels(savedPath)
     
     def save_file_dialog(self, remove_ext=True):
         caption = 'Choose Path to save annotation'
