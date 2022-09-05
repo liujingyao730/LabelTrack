@@ -108,12 +108,14 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.toolBarVertical.addWidget(self.labelCombobox)
         self.toolBarVertical.addAction(self.actionAnnot)
         self.toolBarVertical.addAction(self.actionDelete)
+        self.toolBarVertical.addAction(self.actionLabelType)
         self.toolBarVertical.addSeparator()
         self.toolBarVertical.addAction(self.actionModel)
         self.toolBarVertical.addAction(self.actionTrack)
         self.actionDelete.triggered.connect(self.canvas.delete_shape)
         self.actionModel.triggered.connect(self.modelSelect)
         self.actionAnnot.triggered.connect(self.set_create_mode)
+        self.actionLabelType.triggered.connect(self.set_label_type)
         self.actionTrack.triggered.connect(self.canvas.track_frame)  # 自动跟踪
 
         # 输入帧数栏
@@ -129,6 +131,11 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.model = ["yolox_tiny_vd", "yolox_m_vd", "yolox_l_vd"]
         self.modelDialog = ModelDialog(parent=self, model=self.model)
         self.currentModel = self.modelDialog.currentModel
+
+        # 标签类型选择框
+        self.labelType = ["VisDrone", "Yolo", "Coco"]
+        self.labelDialog = ModelDialog(parent=self, model=self.labelType)
+        self.currentLabel = self.labelDialog.currentModel
 
         # canvas 信号
         self.canvas.newShape.connect(self.new_shape)
@@ -353,6 +360,10 @@ class MyWindow(QMainWindow, QtStyleTools):
 
     def current_path(self):
         return os.path.dirname(self.filePath) if self.filePath else '.'
+    
+    def set_label_type(self):
+        self.labelDialog.pop_up()
+        self.currentLabel = self.labelDialog.currentModel
 
     def save_file(self):
         # image_file_dir = os.path.dirname(self.filePath)

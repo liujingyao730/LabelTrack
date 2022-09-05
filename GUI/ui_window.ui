@@ -452,6 +452,15 @@
     <string>跟踪</string>
    </property>
   </action>
+  <action name="actionLabelType">
+   <property name="icon">
+    <iconset>
+     <normaloff>resources/images/ltype.png</normaloff>resources/images/ltype.png</iconset>
+   </property>
+   <property name="text">
+    <string>标签类型</string>
+   </property>
+  </action>
   <action name="actionFit">
    <property name="icon">
     <iconset>
