@@ -139,3 +139,7 @@ cython_debug/
 
 # Visual Studio Code Editor
 .vscode/
+yolox_tiny_best_ckpt.pth.tar
+
+
+Tracking/yolox.egg-info
