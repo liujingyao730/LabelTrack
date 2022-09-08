@@ -23,3 +23,25 @@ class configs():
         self.aspect_ratio_thresh = self.config['aspect_ratio_thresh']
         self.min_box_area = self.config['min_box_area']
         self.mot20 = self.config['mot20']
+
+class v5configs():
+    def __init__(self, config_path):
+        self.config = load_yaml(config_path)
+        self.source = self.config['source']
+        self.save_result = self.config['save_result']
+        self.fp16 = self.config['fp16']
+        self.experiment_name = self.config['experiment_name']
+        self.name = self.config['name']
+        self.ckpt = self.config['ckpt']
+        self.device = self.config['device']
+        self.fps = self.config['fps']
+        self.track_thresh = self.config['track_thresh']
+        self.track_buffer = self.config['track_buffer']
+        self.match_thresh = self.config['match_thresh']
+        self.aspect_ratio_thresh = self.config['aspect_ratio_thresh']
+        self.min_box_area = self.config['min_box_area']
+        self.mot20 = self.config['mot20']
+        self.imgsz = self.config['imgsz']
+        self.conf_thres = self.config['conf_thres']
+        self.iou_thres = self.config['iou_thres']
+        self.num_classes = self.config['num_classes']

@@ -57,12 +57,14 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
         if not detections.size(0):
             continue
 
+        # int64 tensor with the indices of the elements that have been kept by NMS, sorted in decreasing order of scores
         nms_out_index = torchvision.ops.batched_nms(
-            detections[:, :4],
-            detections[:, 4] * detections[:, 5],
-            detections[:, 6],
-            nms_thre,
+            detections[:, :4], # boxes(x1, y1, x2, y2)
+            detections[:, 4] * detections[:, 5], # scores for each one of the boxes
+            detections[:, 6], # indices of the categories for each one of the boxes
+            nms_thre, # discards all overlapping boxes with IoU > iou_threshold
         )
+        # 取每一帧经过nms过滤的目标框
         detections = detections[nms_out_index]
         if output[i] is None:
             output[i] = detections

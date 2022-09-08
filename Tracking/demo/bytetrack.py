@@ -127,20 +127,31 @@ class Predictor(object):
     def __init__(
         self,
         model,
-        exp,
+        # exp,
+        num_classes,
+        test_conf,
+        nmsthre,
+        test_size,
         trt_file=None,
         decoder=None,
         device=torch.device("cpu"),
-        fp16=False
+        fp16=False,
+        yoloid=0
     ):
         self.model = model
         self.decoder = decoder
-        self.num_classes = exp.num_classes
-        self.confthre = exp.test_conf
-        self.nmsthre = exp.nmsthre
-        self.test_size = exp.test_size
+        # self.num_classes = exp.num_classes
+        self.num_classes = num_classes
+        # self.confthre = exp.test_conf
+        self.confthre = test_conf
+        # self.nmsthre = exp.nmsthre
+        self.nmsthre = nmsthre
+        # nmsthre与iou_thres是同样的含义，分别是batched_nms(yolox) 和 nms(yolov5)的参数
+        # self.test_size = exp.test_size
+        self.test_size = test_size
         self.device = device
         self.fp16 = fp16
+        self.yoloid = yoloid
         self.rgb_means = (0.485, 0.456, 0.406)
         self.std = (0.229, 0.224, 0.225)
         if trt_file is not None:
@@ -149,7 +160,8 @@ class Predictor(object):
             model_trt = TRTModule()
             model_trt.load_state_dict(torch.load(trt_file))
 
-            x = torch.ones((1, 3, exp.test_size[0], exp.test_size[1]), device=device)
+            # x = torch.ones((1, 3, exp.test_size[0], exp.test_size[1]), device=device)
+            x = torch.ones((1, 3, self.test_size[0], self.test_size[1]), device=device)
             self.model(x)
             self.model = model_trt
         
@@ -173,18 +185,36 @@ class Predictor(object):
         if self.fp16:
             img = img.half()  # to FP16
 
-        with torch.no_grad():
-            timer.tic()
-            outputs = self.model(img)
-            if self.decoder is not None:
-                outputs = self.decoder(outputs, dtype=outputs.type())
-            outputs = postprocess(
-                outputs, self.num_classes, self.confthre, self.nmsthre
-            )
-            #logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+        if self.yoloid == 0:
+            with torch.no_grad():
+                timer.tic()
+                outputs = self.model(img)
+                if self.decoder is not None:
+                    outputs = self.decoder(outputs, dtype=outputs.type())
+                # outputs - list of detections(x1, y1, x2, y2, obj_conf, class_conf, class_pred)
+                outputs = postprocess(
+                    outputs, self.num_classes, self.confthre, self.nmsthre
+                )
+                #logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+        elif self.yoloid == 1:
+            from tph_yolov5.utils.general import non_max_suppression
+            img = torch.from_numpy(img.cpu().numpy()).to('cuda:0')
+            img = img.half() if self.fp16 else img.float()
+            img /= 255
+            if len(img.shape) == 3:
+                img = img[None]
+            outputs = self.model(img)[0]
+            max_det = 1000
+            agnostic_nms = False
+            # outputs - list of detections, on (n,6) tensor per image [xyxy, conf, cls]
+            outputs = non_max_suppression(outputs, self.confthre, self.nmsthre, self.num_classes, agnostic_nms, max_det=max_det)
+            # 注意原来的代码返回的类型是numpy类型
+            outputs = [x.cpu().numpy() for x in outputs]
+
         return outputs, img_info
 
-def frames_track(exp, predictor, img_list, config, signal, canvas):
+def frames_track(#exp,
+                 test_size, predictor, img_list, config, signal, canvas):
     tracker = BYTETracker(config, frame_rate=config.fps)
     results = []
     resultImg = []
@@ -195,7 +225,8 @@ def frames_track(exp, predictor, img_list, config, signal, canvas):
     for frame_id, img in enumerate(img_list, 1):
         outputs, img_info = predictor.inference(img, timer)
         if outputs[0] is not None:
-            online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], exp.test_size)
+            # online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], exp.test_size)
+            online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], test_size)
             online_tlwhs = []
             online_ids = []
             online_scores = []
