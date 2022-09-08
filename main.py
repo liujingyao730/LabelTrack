@@ -13,6 +13,8 @@ from PyQt5.QtMultimedia import *
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 
 from qt_material import apply_stylesheet, QtStyleTools, density
+from GUI.shape import Shape
+import GUI.shape as guishape
 
 from GUI.tools import img_cv_to_qt
 from GUI.label_combox import DefaultLabelComboBox
@@ -133,8 +135,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.currentModel = self.modelDialog.currentModel
 
         # 标签类型选择框
-        self.labelType = ["VisDrone", "Yolo", "Coco"]
-        self.labelDialog = ModelDialog(parent=self, model=self.labelType)
+        self.labelType = ["VisDrone", "Yolo", "COCO"]
+        self.labelDialog = ModelDialog(parent=self, model=self.labelType, text="Label type:   ")
         self.currentLabel = self.labelDialog.currentModel
 
         # canvas 信号
@@ -407,7 +409,7 @@ class MyWindow(QMainWindow, QtStyleTools):
             w = max_x - min_x
             h = max_y - min_y
             classId = VISDRONE_CLASSES.index(shape.label)
-            if shape.auto == 'M':
+            if shape.auto == guishape.STATIONARY_OBJECT:
                 for i in range(1, self.canvas.numFrames + 1):
                     results.append(
                     f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"

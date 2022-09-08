@@ -6,6 +6,7 @@ from GUI.tools import img_cv_to_qt
 from GUI.trackworker import trackWorker
 from GUI.fileworker import fileWorker
 from GUI.shape import Shape
+import GUI.shape as guishape
 from GUI.color import *
 from GUI.utils import *
 
@@ -149,35 +150,35 @@ class canvas(QWidget):
         self.newShape.emit()
         self.update()
 
-    def update_shape(self, id, frameId, cls_id, tlwh, score, auto = 'M'):
-        detectPos = Shape()
-        detectPos.id = id
-        detectPos.frameId = frameId
-        label = VISDRONE_CLASSES[cls_id]
-        detectPos.label = label
-        detectPos.score = score
-        detectPos.auto = auto
-        generate_line_color, generate_fill_color = generate_color_by_text(detectPos.label)
-        self.set_shape_label(detectPos, detectPos.label, detectPos.id, generate_line_color, generate_fill_color)
-        leftTop = QPointF(tlwh[0], tlwh[1])
-        rightTop = QPointF(tlwh[0] + tlwh[2], tlwh[1])
-        rightDown = QPointF(tlwh[0] + tlwh[2], tlwh[1] + tlwh[3])
-        leftDown = QPointF(tlwh[0], tlwh[1] + tlwh[3])
-        pointPos = [leftTop, rightTop, rightDown, leftDown]
-        for pos in pointPos:
-            if self.out_of_pixmap(pos):
-                size = self.pixmap.size()
-                clipped_x = min(max(0, pos.x()), size.width())
-                clipped_y = min(max(0, pos.y()), size.height())
-                pos = QPointF(clipped_x, clipped_y)
-            detectPos.add_point(pos)
+    # def update_shape(self, id, frameId, cls_id, tlwh, score, auto = 'M'):
+    #     detectPos = Shape()
+    #     detectPos.id = id
+    #     detectPos.frameId = frameId
+    #     label = VISDRONE_CLASSES[cls_id]
+    #     detectPos.label = label
+    #     detectPos.score = score
+    #     detectPos.auto = auto
+    #     generate_line_color, generate_fill_color = generate_color_by_text(detectPos.label)
+    #     self.set_shape_label(detectPos, detectPos.label, detectPos.id, generate_line_color, generate_fill_color)
+    #     leftTop = QPointF(tlwh[0], tlwh[1])
+    #     rightTop = QPointF(tlwh[0] + tlwh[2], tlwh[1])
+    #     rightDown = QPointF(tlwh[0] + tlwh[2], tlwh[1] + tlwh[3])
+    #     leftDown = QPointF(tlwh[0], tlwh[1] + tlwh[3])
+    #     pointPos = [leftTop, rightTop, rightDown, leftDown]
+    #     for pos in pointPos:
+    #         if self.out_of_pixmap(pos):
+    #             size = self.pixmap.size()
+    #             clipped_x = min(max(0, pos.x()), size.width())
+    #             clipped_y = min(max(0, pos.y()), size.height())
+    #             pos = QPointF(clipped_x, clipped_y)
+    #         detectPos.add_point(pos)
         
-        detectPos.close()
-        self.shapes.append(detectPos)
-        detectPos = None
-        # self.set_hiding(False)
-        self.newShape.emit()
-        self.update()
+    #     detectPos.close()
+    #     self.shapes.append(detectPos)
+    #     detectPos = None
+    #     # self.set_hiding(False)
+    #     self.newShape.emit()
+    #     self.update()
 
     def delete_shape(self):
         self.current = None
@@ -326,7 +327,7 @@ class canvas(QWidget):
             self.select_shape(shape)
             return self.h_vertex
         for shape in reversed(self.shapes):
-            if shape.frameId == self.curFramesId or shape.auto == 'M':
+            if shape.frameId == self.curFramesId or shape.auto == guishape.STATIONARY_OBJECT:
                 if shape.contains_point(point):
                     self.select_shape(shape)
                     self.calculate_offsets(shape, point)
@@ -388,7 +389,7 @@ class canvas(QWidget):
             # if (shape.selected or not self._hide_background) and self.isVisible(shape):
             #     shape.fill = shape.selected or shape == self.h_shape
             #     shape.paint(p)
-            if shape.frameId == self.curFramesId or shape.auto == 'M':
+            if shape.frameId == self.curFramesId or shape.auto == guishape.STATIONARY_OBJECT:
                 shape.fill = shape.selected or shape == self.h_shape # 是否填充
                 shape._highlight_point = shape == self.h_shape
                 shape.paint(p)
@@ -499,7 +500,7 @@ class canvas(QWidget):
         for shape in reversed([s for s in self.shapes]):
             # Look for a nearby vertex to highlight. If that fails,
             # check if we happen to be inside a shape.
-            if shape.frameId == self.curFramesId or shape.auto == 'M':
+            if shape.frameId == self.curFramesId or shape.auto == guishape.STATIONARY_OBJECT:
                 index = shape.nearest_vertex(pos, self.epsilon)
                 if index is not None:
                     if self.selected_vertex():
