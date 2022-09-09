@@ -1,0 +1,20 @@
+source: image
+save_result: False
+fp16: False
+experiment_name: AutoLabelTrack
+name: bytetrack_tph_yolov5_track
+ckpt: ./Tracking/weights/yolov5l-xs-1.pt
+device: gpu
+fps: 30
+track_thresh: 0.5
+track_buffer: 30
+match_thresh: 0.8
+aspect_ratio_thresh: 1.6
+min_box_area: 10
+mot20: False
+imgsz: 640
+conf_thres: 0.25
+iou_thres: 0.45
+num_classes: 10
+
+

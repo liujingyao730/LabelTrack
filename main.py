@@ -130,7 +130,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.vedioSlider.valueChanged.connect(self.move_slider)
 
         # 模型选择框
-        self.model = ["yolox_tiny_vd", "yolox_m_vd", "yolox_l_vd"]
+        self.model = ["tph_yolov5", "yolox_tiny_vd", "yolox_m_vd", "yolox_l_vd"]
         self.modelDialog = ModelDialog(parent=self, model=self.model)
         self.currentModel = self.modelDialog.currentModel
 
