@@ -29,7 +29,7 @@ class v5configs():
         self.config = load_yaml(config_path)
         self.source = self.config['source']
         self.save_result = self.config['save_result']
-        self.fp16 = self.config['fp16']
+        self.half = self.config['half']
         self.experiment_name = self.config['experiment_name']
         self.name = self.config['name']
         self.ckpt = self.config['ckpt']

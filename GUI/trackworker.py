@@ -21,7 +21,7 @@ class trackWorker(QThread):
 
     def load_frames(self, imgframes):
         self.imgFrames = imgframes
-		
+
     def load_model(self, model):
         self.model = model
         print(self.model)
@@ -52,7 +52,28 @@ class trackWorker(QThread):
 
         cfg.device = torch.device("cuda" if cfg.device == "gpu" else "cpu")
         self.sinOut.emit("初始化模型")
-        if yoloid == 0:
+
+        if yoloid == 1:
+            from tph_yolov5.models.experimental import attempt_load
+            from tph_yolov5.utils.general import check_img_size
+            from tph_yolov5.utils.torch_utils import select_device
+
+            print("loading checkpoint")
+            self.sinOut.emit("加载模型权重")
+            # 目前一种加载模型的方式，以.pt文件为后缀，如果要增加类型请去detect.py找相关代码进行相应修改
+            cfg.device = select_device(cfg.device) # cuda device, i.e. 0 or 0,1,2,3 or cpu
+            model = attempt_load(cfg.ckpt, map_location=cfg.device)
+            print("loaded checkpoint done.")
+            cfg.imgsz = [cfg.imgsz, cfg.imgsz]
+            stride = int(model.stride.max())
+            cfg.imgsz = check_img_size(cfg.imgsz, s=stride)
+            if cfg.device != 'cpu':
+                model(torch.zeros(1, 3, *cfg.imgsz).to(cfg.device).type_as(next(model.parameters())))
+            self.sinOut.emit("模型权重加载完成")
+            predictor = Predictor(model, exp=cfg, device=cfg.device, fp16=cfg.half, yoloid=yoloid)
+            self.imgFrames = frames_track(self.imgFrames[0].shape, predictor, self.imgFrames, cfg, self.sinOut, self.canvas)
+
+        else:
             exp = get_exp(cfg.exp_file, cfg.name)
             model = exp.get_model().to(cfg.device)
             print("Model Summary: {}".format(get_model_info(model, exp.test_size)))
@@ -70,26 +91,6 @@ class trackWorker(QThread):
 
             trt_file = None
             decoder = None
-            # predictor = Predictor(model, exp, trt_file, decoder, cfg.device, cfg.fp16)
-            predictor = Predictor(model, exp.num_classes, exp.test_conf, exp.nmsthre, exp.test_size,
-                                  trt_file, decoder, cfg.device, cfg.fp16, yoloid)
-            # self.imgFrames = frames_track(exp, predictor, self.imgFrames, cfg, self.sinOut, self.canvas)
-            self.imgFrames = frames_track(exp.test_size, predictor, self.imgFrames, cfg, self.sinOut, self.canvas)
+            predictor = Predictor(model, exp, trt_file, decoder, cfg.device, cfg.fp16)
 
-        elif yoloid == 1:
-            print("loading checkpoint")
-            self.sinOut.emit("加载模型权重")
-            from tph_yolov5.models.experimental import attempt_load
-            from tph_yolov5.utils.general import check_img_size
-            model = attempt_load(cfg.ckpt, map_location=cfg.device)
-            print("loaded checkpoint done.")
-            self.sinOut.emit("模型权重加载完成")
-            cfg.imgsz = [cfg.imgsz, cfg.imgsz]
-            # cfg.imgsz = check_img_size(cfg.imgsz, s=64)
-            if cfg.device != 'cpu':
-                model(torch.zeros(1, 3, *cfg.imgsz).to(cfg.device).type_as(next(model.parameters())))
-            trt_file = None
-            decoder = None
-            predictor = Predictor(model, cfg.num_classes, cfg.conf_thres, cfg.iou_thres, cfg.imgsz,
-                                  trt_file, decoder, cfg.device, cfg.fp16, yoloid)
-            self.imgFrames = frames_track(cfg.imgsz, predictor, self.imgFrames, cfg, self.sinOut, self.canvas)
+            self.imgFrames = frames_track(exp, predictor, self.imgFrames, cfg, self.sinOut, self.canvas)
