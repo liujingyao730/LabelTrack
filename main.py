@@ -179,10 +179,20 @@ class MyWindow(QMainWindow, QtStyleTools):
     # 加载标注文件 .txt
     def load_file(self):
         self.statusBar.showMessage("正在加载标注文件，请稍后")
-        self.labelPath, _ = QFileDialog.getOpenFileName(self, "Choose annotation file", "", "txt(*.txt)")
-        if self.labelPath:
-            self.loadWorker.load_path(self.labelPath)
-            self.loadWorker.start()
+        self.loadWorker.set_label_type(self.currentLabel)
+        if self.currentLabel == 'Yolo':
+            self.labelDir = QFileDialog.getExistingDirectory(self, "Choose annotation Directory" "")
+            if self.labelDir:
+                cap = cv2.VideoCapture(self.filePath)
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                self.loadWorker.load_yolo_cfig(self.labelDir, videoWidth=width, videoHeight=height)
+                self.loadWorker.start()
+        else:
+            self.labelPath, _ = QFileDialog.getOpenFileName(self, "Choose annotation file", "", "txt(*.txt)")
+            if self.labelPath:
+                self.loadWorker.load_path(self.labelPath)
+                self.loadWorker.start()
         self.statusBar.showMessage("")
 
     def update_load_status(self, message):
