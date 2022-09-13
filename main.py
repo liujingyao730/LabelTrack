@@ -144,7 +144,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.prev_label_text = ''
 
     # 打开文件
-    def open_file(self):
+    def open_file(self): # mp4视频文件
         self.filePath, _ = QFileDialog.getOpenFileName(self, "Open file", "", "mp4 Video (*.mp4)")
         if self.filePath.endswith('.mp4'):
             self.videoFileUrl = QUrl.fromLocalFile(self.filePath)
@@ -159,6 +159,8 @@ class MyWindow(QMainWindow, QtStyleTools):
 
     def open_dict(self):
         target_dir_path = ustr(QFileDialog.getExistingDirectory(self, 'Open Directory', '.', QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
+        if not os.path.exists(target_dir_path) or len(get_image_list(target_dir_path)) <= 0:
+            return
         self.canvas.init_frame(target_dir_path)
         # self.adjust_scale()
         # self.lineCurFrame.setText("1")
