@@ -419,15 +419,23 @@ class MyWindow(QMainWindow, QtStyleTools):
             w = max_x - min_x
             h = max_y - min_y
             classId = VISDRONE_CLASSES.index(shape.label)
-            if shape.auto == 'M':
-                for i in range(1, self.canvas.numFrames + 1):
-                    results.append(
-                    f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
-                )
+            if self.currentLabel == "Yolo":
+                print(savedPath)
+
+                if shape.auto == 'M':
+                    pass
+                else:
+                    pass
             else:
-                results.append(
-                    f"{shape.frameId},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
-                )
+                if shape.auto == 'M':
+                    for i in range(1, self.canvas.numFrames + 1):
+                        results.append(
+                        f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
+                    )
+                else:
+                    results.append(
+                        f"{shape.frameId},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
+                    )
             
         with open(savedPath, 'w') as f:
             f.writelines(results)

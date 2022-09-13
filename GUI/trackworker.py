@@ -50,7 +50,6 @@ class trackWorker(QThread):
         elif "yolov5" in os.path.basename(cfg.ckpt).split(".")[0]:
             yoloid = 1
 
-        cfg.device = torch.device("cuda" if cfg.device == "gpu" else "cpu")
         self.sinOut.emit("初始化模型")
 
         if yoloid == 1:

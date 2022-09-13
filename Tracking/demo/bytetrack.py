@@ -185,7 +185,6 @@ class Predictor(object):
         from tph_yolov5.utils.augmentations import letterbox
         from tph_yolov5.utils.general import non_max_suppression, scale_coords
         from PIL import Image
-
         # Initialize 和 Load model 在 trackworker.py
         stride = int(model.stride.max())
         img0 = image
@@ -201,10 +200,8 @@ class Predictor(object):
         img /= 255  # 0 - 255 to 0.0 - 1.0
         if len(img.shape) == 3:
             img = img[None]  # expand for batch dim
-
         pred = model(img, augment=augment)[0]
         pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
-
         # Process predictions
         for i, det in enumerate(pred):  # per image
             seen += 1
@@ -214,7 +211,6 @@ class Predictor(object):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
                 pred[i] = det
-
         return pred
 
     def inference(self, img, timer):
@@ -268,6 +264,7 @@ def frames_track(test_size, predictor, img_list, config, signal, canvas):
         outputs, img_info = predictor.inference(img, timer)
         if outputs[0] is not None:
             online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], test_size)
+            T3 = time.time()
             online_tlwhs = []
             online_ids = []
             online_scores = []
