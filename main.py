@@ -21,7 +21,7 @@ from GUI.label_combox import DefaultLabelComboBox
 # from frame import frame
 from GUI.canvas import canvas
 from GUI.zoomWidget import ZoomWidget
-from GUI.utils import *
+import GUI.utils as utils
 from GUI.ustr import ustr
 from GUI.load_worker import loadWorker
 from GUI.model_dialog import ModelDialog
@@ -135,8 +135,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.currentModel = self.modelDialog.currentModel
 
         # 标签类型选择框
-        self.labelType = ["VisDrone", "Yolo", "COCO"]
-        self.labelDialog = ModelDialog(parent=self, model=self.labelType, text="Label type:   ")
+        self.labelTypes = ["VisDrone", "Yolo", "Coco"]
+        self.labelDialog = ModelDialog(parent=self, model=self.labelTypes, text="Label type:   ") # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
         self.currentLabel = self.labelDialog.currentModel
 
         # canvas 信号
@@ -353,7 +353,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         # TODO
         text = self.defaultLabel
         self.prev_label_text = text
-        generate_line_color, generate_fill_color = generate_color_by_text(text)
+        generate_line_color, generate_fill_color = utils.generate_color_by_text(text)
         shape = self.canvas.set_last_label(text, generate_line_color, generate_fill_color)
         # self.add_label(shape)
         self.canvas.set_editing(True) # edit mode
@@ -364,6 +364,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         return os.path.dirname(self.filePath) if self.filePath else '.'
     
     def set_label_type(self):
+        # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
         self.labelDialog.pop_up()
         self.currentLabel = self.labelDialog.currentModel
 
@@ -371,57 +372,44 @@ class MyWindow(QMainWindow, QtStyleTools):
         # image_file_dir = os.path.dirname(self.filePath)
         # image_file_name = os.path.basename(self.filePath)
         # saved_file_name = os.path.splitext(image_file_name)[0]
-        savedPath = self.save_file_dialog(remove_ext=False)
+        savedPath = self.save_file_dialog()
         if savedPath:
             self.save_labels(savedPath)
     
-    def save_file_dialog(self, remove_ext=True):
-        caption = 'Choose Path to save annotation'
-        filters = 'Files Directory(*.*)'
-        # TODO
-        open_dialog_path = self.current_path()
-        dlg = QFileDialog(self, caption, open_dialog_path, filters)
-        # dlg.setDefaultSuffix(LabelFile.suffix[1:])
-        dlg.setAcceptMode(QFileDialog.AcceptSave)
-        filename = os.path.splitext(self.filePath)[0] + '.txt'
-        dlg.selectFile(filename)
-        dlg.setOption(QFileDialog.DontUseNativeDialog, False)
-        if dlg.exec_():
-            full_file_path = ustr(dlg.selectedFiles()[0])
-            if remove_ext:
-                return os.path.splitext(full_file_path)[0]  # Return file path without the extension.
-            else:
-                return full_file_path
-        return ''
+    def save_file_dialog(self):
+        
+        if self.currentLabel == "Yolo":
+            saveDir = QFileDialog.getExistingDirectory(
+                self, "选取文件夹", self.current_path()
+            )
+            return saveDir
+        elif self.currentLabel == "VisDrone":
+            dlg = QFileDialog(
+                self, "选取文件保存路径", self.current_path(),
+                "Files Directory(*.*)"
+            )
+            dlg.setAcceptMode(QFileDialog.AcceptSave)
+            dlg.selectFile(os.path.splitext(self.filePath)[0] + '.txt')
+            dlg.setOption(QFileDialog.DontUseNativeDialog, False)
+            dlg.exec_()
+            return ustr(dlg.selectedFiles()[0])
+        else:
+            self.statusBar.showMessage(f"标注类型 {self.currentLabel} 尚未实现")
+
         
     def save_labels(self, savedPath):
-        results = []
-        for shape in self.canvas.shapes:
-            min_x = sys.maxsize
-            min_y = sys.maxsize
-            max_x = 0
-            max_y = 0
-            for point in shape.points:
-                min_x = round(min(min_x, point.x()))
-                min_y = round(min(min_y, point.y()))
-                max_x = round(max(max_x, point.x()))
-                max_y = round(max(max_y, point.y()))
-            w = max_x - min_x
-            h = max_y - min_y
-            classId = VISDRONE_CLASSES.index(shape.label)
-            if shape.auto == guishape.STATIONARY_OBJECT:
-                for i in range(1, self.canvas.numFrames + 1):
-                    results.append(
-                    f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
-                )
-            else:
-                results.append(
-                    f"{shape.frameId},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
-                )
-            
-        with open(savedPath, 'w') as f:
-            f.writelines(results)
-            print(f"save results to {savedPath}")
+        
+        if self.currentLabel == "VisDrone":
+            utils.generate_visdrone_txts(self.canvas.shapes, self.canvas.numFrames, savedPath)
+        elif self.currentLabel == "Yolo":
+            utils.generate_yolo_txts(
+                self.canvas.shapes, 
+                self.canvas.pixmap.width(), self.canvas.pixmap.height(),
+                self.canvas.numFrames, savedPath
+            )
+        else:
+            self.statusBar.showMessage(f"标注类型 {self.currentLabel} 尚未实现")
+        
 
     # 删除选中的框
     def delete_selected_shape(self):
