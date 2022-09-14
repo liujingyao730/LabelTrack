@@ -43,11 +43,13 @@ class MyWindow(QMainWindow, QtStyleTools):
 
         self = uic.loadUi('./GUI/ui_window.ui', self)
         self.setWindowTitle('Auto - LabelTrack')
-        
+
         self.canvas = canvas(parent=self)
 
         # 视频播放器
-        self.player = QMediaPlayer() 
+        self.videoWidth = 0
+        self.videoHeight = 0
+        self.player = QMediaPlayer()
         self.videoFileUrl = ""
         self.filePath = ""
         self.labelPath = ""
@@ -128,7 +130,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.vedioSlider.valueChanged.connect(self.move_slider)
 
         # 模型选择框
-        self.model = ["yolox_tiny_vd", "yolox_m_vd", "yolox_l_vd"]
+        self.model = ["tph_yolov5", "yolox_tiny_vd", "yolox_m_vd", "yolox_l_vd"]
         self.modelDialog = ModelDialog(parent=self, model=self.model)
         self.currentModel = self.modelDialog.currentModel
 
@@ -144,11 +146,14 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.prev_label_text = ''
 
     # 打开文件
-    def open_file(self):
+    def open_file(self): # mp4视频文件
         self.filePath, _ = QFileDialog.getOpenFileName(self, "Open file", "", "mp4 Video (*.mp4)")
         if self.filePath.endswith('.mp4'):
             self.videoFileUrl = QUrl.fromLocalFile(self.filePath)
             # 初始化所有图像帧
+            cap = cv2.VideoCapture(self.filePath)
+            self.videoWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            self.videoHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             self.canvas.init_frame(self.filePath)
 
     def open_file_finish(self):
@@ -159,6 +164,13 @@ class MyWindow(QMainWindow, QtStyleTools):
 
     def open_dict(self):
         target_dir_path = ustr(QFileDialog.getExistingDirectory(self, 'Open Directory', '.', QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
+        if not os.path.exists(target_dir_path):
+            return
+        lst = get_image_list(target_dir_path)
+        if len(lst) <= 0:
+            return
+        self.videoHeight = lst[0].shape[0]
+        self.videoWidth = lst[0].shape[1]
         self.canvas.init_frame(target_dir_path)
         # self.adjust_scale()
         # self.lineCurFrame.setText("1")
@@ -179,10 +191,18 @@ class MyWindow(QMainWindow, QtStyleTools):
     # 加载标注文件 .txt
     def load_file(self):
         self.statusBar.showMessage("正在加载标注文件，请稍后")
-        self.labelPath, _ = QFileDialog.getOpenFileName(self, "Choose annotation file", "", "txt(*.txt)")
-        if self.labelPath:
-            self.loadWorker.load_path(self.labelPath)
-            self.loadWorker.start()
+        self.loadWorker.set_label_type(self.currentLabel)
+        if self.currentLabel == 'Yolo':
+            self.labelDir = QFileDialog.getExistingDirectory(self, "Choose annotation Directory" "")
+            if self.labelDir:
+                # 注意一定要先加载视频
+                self.loadWorker.load_yolo_cfig(self.labelDir, videoWidth=self.videoWidth, videoHeight=self.videoHeight)
+                self.loadWorker.start()
+        else:
+            self.labelPath, _ = QFileDialog.getOpenFileName(self, "Choose annotation file", "", "txt(*.txt)")
+            if self.labelPath:
+                self.loadWorker.load_path(self.labelPath)
+                self.loadWorker.start()
         self.statusBar.showMessage("")
 
     def update_load_status(self, message):
@@ -369,30 +389,48 @@ class MyWindow(QMainWindow, QtStyleTools):
         # image_file_dir = os.path.dirname(self.filePath)
         # image_file_name = os.path.basename(self.filePath)
         # saved_file_name = os.path.splitext(image_file_name)[0]
-        savedPath = self.save_file_dialog(remove_ext=False)
+        if self.currentLabel == "Yolo":
+            savedPath = self.save_file_dialog(dirSave=True)
+        else:
+            savedPath = self.save_file_dialog(remove_ext=False)
         if savedPath:
             self.save_labels(savedPath)
     
-    def save_file_dialog(self, remove_ext=True):
-        caption = 'Choose Path to save annotation'
-        filters = 'Files Directory(*.*)'
-        # TODO
-        open_dialog_path = self.current_path()
-        dlg = QFileDialog(self, caption, open_dialog_path, filters)
-        # dlg.setDefaultSuffix(LabelFile.suffix[1:])
-        dlg.setAcceptMode(QFileDialog.AcceptSave)
-        filename = os.path.splitext(self.filePath)[0] + '.txt'
-        dlg.selectFile(filename)
-        dlg.setOption(QFileDialog.DontUseNativeDialog, False)
-        if dlg.exec_():
-            full_file_path = ustr(dlg.selectedFiles()[0])
-            if remove_ext:
-                return os.path.splitext(full_file_path)[0]  # Return file path without the extension.
-            else:
-                return full_file_path
+    def save_file_dialog(self, remove_ext=True, dirSave=False):
+        if dirSave:
+            target_dir_path = ustr(QFileDialog.getExistingDirectory(self, 'Open Directory', '.',
+                                                                    QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
+            return target_dir_path + os.path.sep + \
+                   os.path.basename(os.path.splitext(self.filePath)[0]) + '.txt'
+        else:
+            caption = 'Choose Path to save annotation'
+            filters = 'Files Directory(*.*)'
+            # TODO
+            open_dialog_path = self.current_path()
+            dlg = QFileDialog(self, caption, open_dialog_path, filters)
+            # dlg.setDefaultSuffix(LabelFile.suffix[1:])
+            dlg.setAcceptMode(QFileDialog.AcceptSave)
+            filename = os.path.splitext(self.filePath)[0] + '.txt'
+            dlg.selectFile(filename)
+            dlg.setOption(QFileDialog.DontUseNativeDialog, False)
+            if dlg.exec_():
+                full_file_path = ustr(dlg.selectedFiles()[0])
+                if remove_ext:
+                    return os.path.splitext(full_file_path)[0]  # Return file path without the extension.
+                else:
+                    return full_file_path
         return ''
         
     def save_labels(self, savedPath):
+        def convert(shape, box):
+            dw = 1. / shape[0]
+            dh = 1. / shape[1]
+            x = (box[0] + box[2] / 2) * dw
+            y = (box[1] + box[3] / 2) * dh
+            w = box[2] * dw
+            h = box[3] * dh
+            return (x, y, w, h)
+
         results = []
         for shape in self.canvas.shapes:
             min_x = sys.maxsize
@@ -407,19 +445,35 @@ class MyWindow(QMainWindow, QtStyleTools):
             w = max_x - min_x
             h = max_y - min_y
             classId = VISDRONE_CLASSES.index(shape.label)
-            if shape.auto == 'M':
-                for i in range(1, self.canvas.numFrames + 1):
-                    results.append(
-                    f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
-                )
+            if self.currentLabel == "Yolo":
+                savedPathPrefix = savedPath[:-4]
+                if shape.auto == 'M':
+                    for i in range(1, self.canvas.numFrames + 1):
+                        savedFramePath = savedPathPrefix + '_' + str(i) + '.txt'
+                        min_x, min_y, w, h = convert([self.videoWidth, self.videoHeight],
+                                                     [min_x, min_y, w, h])
+                        with open(savedFramePath, 'a') as f:
+                            f.write(f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
+                else:
+                    savedFramePath = savedPathPrefix + '_' + str(shape.frameId) + '.txt'
+                    min_x, min_y, w, h = convert([self.videoWidth, self.videoHeight],
+                                                 [min_x, min_y, w, h])
+                    with open(savedFramePath, 'a') as f:
+                        f.write(f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
             else:
-                results.append(
-                    f"{shape.frameId},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
-                )
-            
-        with open(savedPath, 'w') as f:
-            f.writelines(results)
-            print(f"save results to {savedPath}")
+                if shape.auto == 'M':
+                    for i in range(1, self.canvas.numFrames + 1):
+                        results.append(
+                        f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
+                    )
+                else:
+                    results.append(
+                        f"{shape.frameId},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
+                    )
+        if self.currentLabel != "Yolo":
+            with open(savedPath, 'w') as f:
+                f.writelines(results)
+                print(f"save results to {savedPath}")
 
     # 删除选中的框
     def delete_selected_shape(self):

@@ -93,7 +93,6 @@ class Shape(object):
             painter.setPen(pen)
             idFont = QFont("Monospace", 12, QFont.Bold)
             painter.setFont(idFont)
-
             line_path = QPainterPath()
             vertex_path = QPainterPath()
 

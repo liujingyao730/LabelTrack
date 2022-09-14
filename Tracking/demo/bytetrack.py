@@ -131,28 +131,87 @@ class Predictor(object):
         trt_file=None,
         decoder=None,
         device=torch.device("cpu"),
-        fp16=False
+        fp16=False,
+        yoloid=0
     ):
-        self.model = model
-        self.decoder = decoder
-        self.num_classes = exp.num_classes
-        self.confthre = exp.test_conf
-        self.nmsthre = exp.nmsthre
-        self.test_size = exp.test_size
-        self.device = device
-        self.fp16 = fp16
-        self.rgb_means = (0.485, 0.456, 0.406)
-        self.std = (0.229, 0.224, 0.225)
-        if trt_file is not None:
-            from torch2trt import TRTModule
+        if yoloid == 0:
+            self.model = model
+            self.decoder = decoder
+            self.num_classes = exp.num_classes
+            self.confthre = exp.test_conf
+            self.nmsthre = exp.nmsthre
+            # nmsthre与iou_thres是同样的含义，分别是batched_nms(yolox) 和 nms(yolov5)的参数
+            self.test_size = exp.test_size
+            self.device = device
+            self.fp16 = fp16
+            self.yoloid = yoloid
+            self.rgb_means = (0.485, 0.456, 0.406)
+            self.std = (0.229, 0.224, 0.225)
+            if trt_file is not None:
+                from torch2trt import TRTModule
+                model_trt = TRTModule()
+                model_trt.load_state_dict(torch.load(trt_file))
 
-            model_trt = TRTModule()
-            model_trt.load_state_dict(torch.load(trt_file))
+                x = torch.ones((1, 3, exp.test_size[0], exp.test_size[1]), device=device)
+                self.model(x)
+                self.model = model_trt
+        elif yoloid == 1:
+            self.model = model
+            self.test_size = exp.imgsz
+            self.fp16 = fp16
+            self.rgb_means = (0.485, 0.456, 0.406)
+            self.std = (0.229, 0.224, 0.225)
+            self.cfg = exp
+            self.yoloid = yoloid
 
-            x = torch.ones((1, 3, exp.test_size[0], exp.test_size[1]), device=device)
-            self.model(x)
-            self.model = model_trt
-        
+    # 该函数由tph_yolov5下的detect.py修改得到
+    # 去除了保存、可视化所需的参数以及tensorflow的部分
+    # 如要添加更多功能请去detect.py寻找相关代码
+    @torch.no_grad()
+    def v5inference(self,
+                    model,
+                    image,
+                    imgsz=640,  # inference size (pixels)
+                    conf_thres=0.25,  # confidence threshold
+                    iou_thres=0.45,  # NMS IOU threshold
+                    max_det=1000,  # maximum detections per image
+                    device='',  # cuda device, i.e. 0 or 0,1,2,3 or cpu
+                    classes=None,  # filter by class: --class 0, or --class 0 2 3
+                    agnostic_nms=False,  # class-agnostic NMS
+                    augment=False,  # augmented inference
+                    half=False,  # use FP16 half-precision inference
+        ):
+        import numpy as np
+        from tph_yolov5.utils.augmentations import letterbox
+        from tph_yolov5.utils.general import non_max_suppression, scale_coords
+        from PIL import Image
+        # Initialize 和 Load model 在 trackworker.py
+        stride = int(model.stride.max())
+        img0 = image
+        img = letterbox(img0, imgsz, stride=stride, auto=True)[0]
+        # Convert
+        img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        img = np.ascontiguousarray(img)
+
+        # Run inference
+        dt, seen = [0.0, 0.0, 0.0], 0
+        img = torch.from_numpy(img).to(device)
+        img = img.half() if half else img.float()  # uint8 to fp16/32
+        img /= 255  # 0 - 255 to 0.0 - 1.0
+        if len(img.shape) == 3:
+            img = img[None]  # expand for batch dim
+        pred = model(img, augment=augment)[0]
+        pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
+        # Process predictions
+        for i, det in enumerate(pred):  # per image
+            seen += 1
+            im0 = img0.copy()
+
+            if len(det):
+                # Rescale boxes from img_size to im0 size
+                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                pred[i] = det
+        return pred
 
     def inference(self, img, timer):
         img_info = {"id": 0}
@@ -167,24 +226,33 @@ class Predictor(object):
         img_info["width"] = width
         img_info["raw_img"] = img
 
-        img, ratio = preproc(img, self.test_size, self.rgb_means, self.std)
-        img_info["ratio"] = ratio
-        img = torch.from_numpy(img).unsqueeze(0).float().to(self.device)
         if self.fp16:
             img = img.half()  # to FP16
 
-        with torch.no_grad():
-            timer.tic()
-            outputs = self.model(img)
-            if self.decoder is not None:
-                outputs = self.decoder(outputs, dtype=outputs.type())
-            outputs = postprocess(
-                outputs, self.num_classes, self.confthre, self.nmsthre
-            )
-            #logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+        if self.yoloid == 1:
+            outputs = self.v5inference(model=self.model, image=img,
+                                       imgsz=self.cfg.imgsz, device=self.cfg.device)
+            # 注意原来的代码返回的类型是numpy类型
+            outputs = [x.cpu().numpy() for x in outputs]
+
+        else:
+            img, ratio = preproc(img, self.test_size, self.rgb_means, self.std)
+            img_info["ratio"] = ratio
+            img = torch.from_numpy(img).unsqueeze(0).float().to(self.device)
+            with torch.no_grad():
+                timer.tic()
+                outputs = self.model(img)
+                if self.decoder is not None:
+                    outputs = self.decoder(outputs, dtype=outputs.type())
+                # outputs - list of detections(x1, y1, x2, y2, obj_conf, class_conf, class_pred)
+                outputs = postprocess(
+                    outputs, self.num_classes, self.confthre, self.nmsthre
+                )
+                #logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+
         return outputs, img_info
 
-def frames_track(exp, predictor, img_list, config, signal, canvas):
+def frames_track(test_size, predictor, img_list, config, signal, canvas):
     tracker = BYTETracker(config, frame_rate=config.fps)
     results = []
     resultImg = []
@@ -195,7 +263,8 @@ def frames_track(exp, predictor, img_list, config, signal, canvas):
     for frame_id, img in enumerate(img_list, 1):
         outputs, img_info = predictor.inference(img, timer)
         if outputs[0] is not None:
-            online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], exp.test_size)
+            online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], test_size)
+            T3 = time.time()
             online_tlwhs = []
             online_ids = []
             online_scores = []
