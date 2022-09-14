@@ -8,11 +8,11 @@ from GUI.utils import new_icon, label_validator, trimmed
 BB = QDialogButtonBox
 
 class ModelDialog(QDialog):
-    def __init__(self, parent=None, model=[]):
+    def __init__(self, parent=None, model=[], text="Model:  "):
         super(ModelDialog, self).__init__(parent)
         
         # 模型名称
-        self.modelName = QLabel("Model: ", self)
+        self.modelName = QLabel(text, self)
         
         
         self.model = model

@@ -6,6 +6,8 @@ import sys
 import os
 import os.path as osp
 from GUI.color import *
+import GUI.shape as guishape
+import json
 
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
@@ -161,3 +163,84 @@ if QT5:
 else:
     def trimmed(text):
         return text.trimmed()
+
+
+def get_xywhid(shape):
+
+    min_x = sys.maxsize
+    min_y = sys.maxsize
+    max_x = 0
+    max_y = 0
+
+    for point in shape.points:
+
+        min_x = round(min(min_x, point.x()))
+        min_y = round(min(min_y, point.y()))
+        max_x = round(max(max_x, point.x()))
+        max_y = round(max(max_y, point.y()))
+    
+    w = max_x - min_x
+    h = max_y - min_y
+    classId = VISDRONE_CLASSES.index(shape.label)
+
+    return (min_x, min_y, w, h, classId)
+
+
+def generate_coco_json(shapes):
+
+    raise NotImplementedError
+
+
+def generate_yolo_txts(shapes, width, height, num_frames, Savedir):
+
+    frames = ['' for _ in range(num_frames)]
+
+    for shape in shapes:
+
+        min_x, min_y, w, h, classid = get_xywhid(shape)
+        center_x = (min_x + (w / 2)) / width
+        center_y = (min_y + (h / 2)) / height
+        w = w / width
+        h = h / height
+
+        if shape.auto == guishape.STATIONARY_OBJECT:
+            for i in range(num_frames):
+                frames[i] += f"{classid}, {shape.id}, {center_x}, {center_y}, {w}, {h}\n"
+        else:
+            frames[shape.frameId-1] += f"{classid}, {shape.id}, {center_x}, {center_y}, {w}, {h}\n"
+        
+    for i in range(num_frames):
+        if frames[i]:
+            with open(os.path.join(Savedir, str(i).zfill(8)+'.txt'), 'w') as f:
+                f.writelines(frames[i])
+                print(f"save {i}th frame label")
+
+def generate_visdrone_txts(shapes, num_frames, savedPath):
+
+    results = []
+    for shape in shapes:
+        min_x = sys.maxsize
+        min_y = sys.maxsize
+        max_x = 0
+        max_y = 0
+        for point in shape.points:
+            min_x = round(min(min_x, point.x()))
+            min_y = round(min(min_y, point.y()))
+            max_x = round(max(max_x, point.x()))
+            max_y = round(max(max_y, point.y()))
+        w = max_x - min_x
+        h = max_y - min_y
+        classId = VISDRONE_CLASSES.index(shape.label)
+        if shape.auto == guishape.STATIONARY_OBJECT:
+            for i in range(1, num_frames + 1):
+                results.append(
+                f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
+            )
+        else:
+            results.append(
+                f"{shape.frameId},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
+            )
+        
+    with open(savedPath, 'w') as f:
+        f.writelines(results)
+        print(f"save results to {savedPath}")
