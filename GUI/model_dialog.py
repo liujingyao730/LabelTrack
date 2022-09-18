@@ -12,7 +12,10 @@ class ModelDialog(QDialog):
         super(ModelDialog, self).__init__(parent)
         
         # 模型名称
-        self.modelName = QLabel("Model: ", self)
+        if 'VisDrone' in model:
+            self.modelName = QLabel("Label: ", self)
+        else:
+            self.modelName = QLabel("Model: ", self)
         
         
         self.model = model
