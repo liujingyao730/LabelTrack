@@ -29,6 +29,8 @@ class canvas(QWidget):
 
     def __init__(self, *args, **kwargs):
         super(canvas, self).__init__(*args, **kwargs)
+        self.img_off = QPointF(0, 0)
+        self.ori_pos = None
         self.trackWorker = trackWorker(self) # 跟踪线程
         self.trackWorker.sinOut.connect(self.update_track_status)
         self.fileWorker = fileWorker(self) # 导入文件线程
@@ -104,7 +106,7 @@ class canvas(QWidget):
 
     def transform_pos(self, point):
         """Convert from widget-logical coordinates to painter-logical coordinates."""
-        return point / self.scale - self.offset_to_center()
+        return point / self.scale - self.offset_to_center() - self.img_off
 
     # These two, along with a call to adjustSize are required for the
     # scroll area.
@@ -376,7 +378,7 @@ class canvas(QWidget):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
 
         p.scale(self.scale, self.scale)
-        p.translate(self.offset_to_center())
+        p.translate(self.offset_to_center() + self.img_off)
 
         p.drawPixmap(QPointF(0, 0), self.pixmap)
 
@@ -422,7 +424,7 @@ class canvas(QWidget):
         if self.numFrames:
             self.window.label_coordinates.setText(
                 'X: %d; Y: %d' % (pos.x(), pos.y()))
-    
+
         if self.drawing(): # create mode
             self.override_cursor(CURSOR_DRAW)
 
@@ -479,6 +481,14 @@ class canvas(QWidget):
                 current_height = abs(point1.y() - point3.y())
                 self.window.label_coordinates.setText(
                         'Width: %d, Height: %d / X: %d; Y: %d' % (current_width, current_height, pos.x(), pos.y()))
+            else:
+                temp_pos = pos + self.img_off
+                if self.ori_pos is not None:
+                    temp_pos = pos + self.img_off
+                    self.img_off += temp_pos - self.ori_pos
+                self.ori_pos = temp_pos
+                self.repaint()
+
             return
 
         # pixmap moving
@@ -487,6 +497,7 @@ class canvas(QWidget):
             delta_y = pos.y() - self.pan_initial_pos.y()
             self.scrollRequest.emit(delta_x, Qt.Horizontal)
             self.scrollRequest.emit(delta_y, Qt.Vertical)
+            print('right update')
             self.update()
 
             return
@@ -559,6 +570,7 @@ class canvas(QWidget):
 
     def mouseReleaseEvent(self, ev):
         if ev.button() == Qt.LeftButton:
+            self.ori_pos = None
             pos = self.transform_pos(ev.pos())
             if self.drawing():
                 self.handle_drawing(pos)
@@ -568,6 +580,8 @@ class canvas(QWidget):
                 QApplication.restoreOverrideCursor()
 
     def mouseDoubleClickEvent(self, ev):
+        # 双击恢复原状
+        self.img_off = QPointF(0, 0)
         # 修改标签信息
         if self.selected_shape:
             self.label_dialog = LabelDialog(parent=self, list_item=self.window.labelHint)
