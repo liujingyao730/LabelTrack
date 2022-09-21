@@ -14,7 +14,6 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 
 from qt_material import apply_stylesheet, QtStyleTools, density
 from GUI.shape import Shape
-import GUI.shape as guishape
 
 from GUI.tools import img_cv_to_qt
 from GUI.label_combox import DefaultLabelComboBox
@@ -168,7 +167,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         target_dir_path = ustr(QFileDialog.getExistingDirectory(self, 'Open Directory', '.', QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
         if not os.path.exists(target_dir_path):
             return
-        lst = get_image_list(target_dir_path)
+        lst = utils.get_image_list(target_dir_path)
         if len(lst) <= 0:
             return
         self.videoHeight = lst[0].shape[0]
@@ -447,7 +446,7 @@ class MyWindow(QMainWindow, QtStyleTools):
                 max_y = round(max(max_y, point.y()))
             w = max_x - min_x
             h = max_y - min_y
-            classId = VISDRONE_CLASSES.index(shape.label)
+            classId = utils.VISDRONE_CLASSES.index(shape.label)
             if self.currentLabel == "Yolo":
                 savedPathPrefix = savedPath[:-4]
                 if shape.auto == 'M':
