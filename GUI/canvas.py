@@ -6,6 +6,7 @@ from GUI.tools import img_cv_to_qt
 from GUI.trackworker import trackWorker
 from GUI.fileworker import fileWorker
 from GUI.shape import Shape
+import GUI.shape as guishape
 from GUI.color import *
 from GUI.utils import *
 
@@ -328,7 +329,7 @@ class canvas(QWidget):
             self.select_shape(shape)
             return self.h_vertex
         for shape in reversed(self.shapes):
-            if shape.frameId == self.curFramesId or shape.auto == 'M':
+            if shape.frameId == self.curFramesId or shape.auto == guishape.STATIONARY_OBJECT:
                 if shape.contains_point(point):
                     self.select_shape(shape)
                     self.calculate_offsets(shape, point)
@@ -390,7 +391,7 @@ class canvas(QWidget):
             # if (shape.selected or not self._hide_background) and self.isVisible(shape):
             #     shape.fill = shape.selected or shape == self.h_shape
             #     shape.paint(p)
-            if shape.frameId == self.curFramesId or shape.auto == 'M':
+            if shape.frameId == self.curFramesId or shape.auto == guishape.STATIONARY_OBJECT:
                 shape.fill = shape.selected or shape == self.h_shape # 是否填充
                 shape._highlight_point = shape == self.h_shape
                 shape.paint(p)
@@ -510,7 +511,7 @@ class canvas(QWidget):
         for shape in reversed([s for s in self.shapes]):
             # Look for a nearby vertex to highlight. If that fails,
             # check if we happen to be inside a shape.
-            if shape.frameId == self.curFramesId or shape.auto == 'M':
+            if shape.frameId == self.curFramesId or shape.auto == guishape.STATIONARY_OBJECT:
                 index = shape.nearest_vertex(pos, self.epsilon)
                 if index is not None:
                     if self.selected_vertex():

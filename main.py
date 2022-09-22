@@ -13,13 +13,14 @@ from PyQt5.QtMultimedia import *
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 
 from qt_material import apply_stylesheet, QtStyleTools, density
+from GUI.shape import Shape
 
 from GUI.tools import img_cv_to_qt
 from GUI.label_combox import DefaultLabelComboBox
 # from frame import frame
 from GUI.canvas import canvas
 from GUI.zoomWidget import ZoomWidget
-from GUI.utils import *
+import GUI.utils as utils
 from GUI.ustr import ustr
 from GUI.load_worker import loadWorker
 from GUI.model_dialog import ModelDialog
@@ -138,8 +139,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.currentModel = self.modelDialog.currentModel
 
         # 标签类型选择框
-        self.labelType = ["VisDrone", "Yolo", "Coco"]
-        self.labelDialog = ModelDialog(parent=self, model=self.labelType)
+        self.labelTypes = ["VisDrone", "Yolo", "Coco"]
+        self.labelDialog = ModelDialog(parent=self, model=self.labelTypes, text="Label type:   ") # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
         self.currentLabel = self.labelDialog.currentModel
 
         # canvas 信号
@@ -169,7 +170,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         target_dir_path = ustr(QFileDialog.getExistingDirectory(self, 'Open Directory', '.', QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
         if not os.path.exists(target_dir_path):
             return
-        lst = get_image_list(target_dir_path)
+        lst = utils.get_image_list(target_dir_path)
         if len(lst) <= 0:
             return
         self.videoHeight = lst[0].shape[0]
@@ -393,7 +394,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         # TODO
         text = self.defaultLabel
         self.prev_label_text = text
-        generate_line_color, generate_fill_color = generate_color_by_text(text)
+        generate_line_color, generate_fill_color = utils.generate_color_by_text(text)
         shape = self.canvas.set_last_label(text, generate_line_color, generate_fill_color)
         # self.add_label(shape)
         self.canvas.set_editing(True) # edit mode
@@ -404,6 +405,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         return os.path.dirname(self.filePath) if self.filePath else '.'
     
     def set_label_type(self):
+        # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
         self.labelDialog.pop_up()
         self.currentLabel = self.labelDialog.currentModel
 
@@ -466,7 +468,7 @@ class MyWindow(QMainWindow, QtStyleTools):
                 max_y = round(max(max_y, point.y()))
             w = max_x - min_x
             h = max_y - min_y
-            classId = VISDRONE_CLASSES.index(shape.label)
+            classId = utils.VISDRONE_CLASSES.index(shape.label)
             if self.currentLabel == "Yolo":
                 savedPathPrefix = savedPath[:-4]
                 if shape.auto == 'M':

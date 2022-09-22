@@ -6,6 +6,7 @@ import sys
 import os
 import os.path as osp
 from GUI.color import *
+import json
 
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
