@@ -142,7 +142,9 @@ class MyWindow(QMainWindow, QtStyleTools):
 
         # 标签类型选择框
         self.labelTypes = ["VisDrone", "Yolo", "Coco"]
-        self.labelDialog = ModelDialog(parent=self, model=self.labelTypes, text="Label type:   ") # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
+        # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
+        self.labelDialog = ModelDialog(
+            parent=self, model=self.labelTypes, text="Label type:   ")
         self.currentLabel = self.labelDialog.currentModel
 
         # canvas 信号
@@ -385,8 +387,10 @@ class MyWindow(QMainWindow, QtStyleTools):
         # TODO
         text = self.defaultLabel
         self.prev_label_text = text
-        generate_line_color, generate_fill_color = utils.generate_color_by_text(text)
-        shape = self.canvas.set_last_label(text, generate_line_color, generate_fill_color)
+        generate_line_color, generate_fill_color = utils.generate_color_by_text(
+            text)
+        shape = self.canvas.set_last_label(
+            text, generate_line_color, generate_fill_color)
         # self.add_label(shape)
         self.canvas.set_editing(True)  # edit mode
         self.actionAnnot.setEnabled(True)
