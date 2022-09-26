@@ -1,3 +1,4 @@
+import numpy as np
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
@@ -11,6 +12,7 @@ from GUI.color import *
 from GUI.utils import *
 
 from GUI.label_dialog import LabelDialog
+from GUI.rect_dialog import RectifyDialog
 
 CURSOR_DEFAULT = Qt.ArrowCursor
 CURSOR_POINT = Qt.PointingHandCursor
@@ -498,7 +500,6 @@ class canvas(QWidget):
             delta_y = pos.y() - self.pan_initial_pos.y()
             self.scrollRequest.emit(delta_x, Qt.Horizontal)
             self.scrollRequest.emit(delta_y, Qt.Vertical)
-            print('right update')
             self.update()
 
             return
@@ -616,3 +617,126 @@ class canvas(QWidget):
             v_delta and self.scrollRequest.emit(v_delta, Qt.Vertical)
             h_delta and self.scrollRequest.emit(h_delta, Qt.Horizontal)
         ev.accept()
+
+    def interpolate(self, shape0, shape1):
+        generate_line_color, generate_fill_color = generate_color_by_text(shape0.label)
+
+        shapes = []
+        dis = shape1.frameId - shape0.frameId
+        diff = np.subtract(shape1.points, shape0.points)
+
+        for frameId in range(shape0.frameId + 1, shape1.frameId):
+            offset = (frameId - shape0.frameId) / dis
+            points = shape0.points + diff * offset
+            int_shape = Shape()
+            int_shape.frameId = frameId
+            int_shape.score = shape0.score
+            int_shape.auto = shape0.auto
+            self.set_shape_label(int_shape, shape0.label, shape0.id, generate_line_color, generate_fill_color)
+            for pos in points:
+                if self.out_of_pixmap(pos):
+                    size = self.pixmap.size()
+                    clipped_x = min(max(0, pos.x()), size.width())
+                    clipped_y = min(max(0, pos.y()), size.height())
+                    pos = QPointF(clipped_x, clipped_y)
+                int_shape.add_point(pos)
+            int_shape.close()
+            shapes.append(int_shape)
+
+        return shapes
+
+    def shapeIOU(self, shape0, shape1):
+        def intSeg(seg1, seg2):
+            if seg1[0] > seg2[0]:
+                temp = seg1
+                seg1 = seg2
+                seg2 = temp
+            intLeft = seg2[0]
+            intRight = seg2[1]
+            if seg1[1] < seg2[1]:
+                intRight = seg1[1]
+            if seg2[0] > seg1[1]:
+                intLeft = None
+                intRight = None
+            return [intLeft, intRight]
+
+        wh1 = shape0.points[2] - shape0.points[0]
+        wh2 = shape1.points[2] - shape1.points[0]
+        area1 = wh1.x() * wh1.y()
+        area2 = wh2.x() * wh2.y()
+
+        xSegment = intSeg([shape0.points[0].x(), shape0.points[2].x()],
+                          [shape1.points[0].x(), shape1.points[2].x()])
+
+        ySegment = intSeg([shape0.points[0].y(), shape0.points[2].y()],
+                          [shape1.points[0].y(), shape1.points[2].y()])
+
+        if None in xSegment or None in ySegment:
+            return 0
+
+        intersection = (xSegment[1] - xSegment[0]) * (ySegment[1] - ySegment[0])
+        union = area1 + area2 - intersection
+
+        return intersection / union
+
+    def rectify_selected(self, iou_thresh=0.85):
+        if self.selected_shape:
+            dialog = RectifyDialog(parent=self)
+            toFrame, targetId, isPadding = dialog.pop_up()
+
+            if toFrame is None or toFrame <= 0:
+                return
+
+            if toFrame < self.selected_shape.frameId and targetId >= 1:
+                # 与之前的帧匹配, 首先找到首帧目标
+                shape0 = None
+                shape1 = self.selected_shape
+                for shape in self.shapes:
+                    if shape.id == targetId and shape.frameId == toFrame:
+                        shape0 = shape
+                        break
+                if shape0 is None:
+                    return
+
+                generate_line_color, generate_fill_color = generate_color_by_text(shape0.label)
+                self.set_shape_label(self.shapes[self.shapes.index(shape1)],
+                                     shape0.label, shape0.id, generate_line_color, generate_fill_color)
+
+                # 计算中间帧的插值
+                rect_shapes = self.interpolate(shape0, shape1)
+                ocp_shape = None
+                for rect_shape in rect_shapes:
+                    frame_shapes = [s for s in self.shapes if s.frameId == rect_shape.frameId]
+                    flag = False
+                    for s in frame_shapes:
+                        # 找到该帧中id和目标id一致的框
+                        if s.id == shape0.id:
+                            ocp_shape = s
+                            if self.shapeIOU(s, rect_shape) > iou_thresh:
+                                flag = True
+                                if s.label != shape0.label:
+                                    ind = self.shapes.index(s)
+                                    self.set_shape_label(self.shapes[ind], shape0.label, shape0.id,
+                                                         generate_line_color, generate_fill_color)
+                            break
+                    if flag:
+                        continue
+                    # 不存在id一致或者id一致的框不符合要求要找到正确的框
+                    for s in frame_shapes:
+                        if self.shapeIOU(s, rect_shape) > iou_thresh:
+                            flag = True
+                            ind = self.shapes.index(s)
+                            if ocp_shape:
+                                ocp_ind = self.shapes.index(ocp_shape)
+                                self.shapes[ocp_ind].id = self.shapes[ind].id
+                            self.set_shape_label(self.shapes[ind], shape0.label, shape0.id,
+                                                 generate_line_color, generate_fill_color)
+                            break
+                    if flag:
+                        continue
+                    # 完全找不到匹配的，就直接添加一个这样的框
+                    if isPadding and ocp_shape is None:
+                        self.shapes.append(rect_shape)
+
+            elif toFrame > self.selected_shape.frameId:
+                pass

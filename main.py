@@ -507,6 +507,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         key = ev.key()
         if key == Qt.Key_Delete or key == Qt.Key_S:
             self.delete_selected_shape()
+        if key == Qt.Key_R:
+            self.canvas.rectify_selected()
 
     def closeEvent(self, event):
         sys.exit(0)

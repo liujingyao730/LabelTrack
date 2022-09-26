@@ -3,7 +3,6 @@
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
-
 from GUI.utils import distance
 import sys
 
@@ -15,7 +14,6 @@ DEFAULT_VERTEX_FILL_COLOR = QColor(0, 255, 0, 255)
 DEFAULT_HVERTEX_FILL_COLOR = QColor(255, 0, 0)
 STATIONARY_OBJECT = 'S'
 MOVING_OBJECT = "M"
-
 
 class Shape(object):
     P_SQUARE, P_ROUND = range(2)

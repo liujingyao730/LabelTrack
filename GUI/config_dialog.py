@@ -61,6 +61,8 @@ class ConfigDialog(QDialog):
                 f.write(f'{self.attrList[i]}:{self.valList[i]}\n')
 
     def config_attr_text_changed(self):
+        if not self.textEdit.text().startswith(' '):
+            self.textEdit.setText(' ' + self.textEdit.text())
         self.valList[self.cb.currentIndex()] = self.textEdit.text()
 
     def config_combo_selection_changed(self, index):

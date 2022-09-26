@@ -275,7 +275,7 @@ def frames_track(test_size, predictor, img_list, config, signal, canvas):
                 cid = int(t.cls_id)
 
                 vertical = tlwh[2] / tlwh[3] > config.aspect_ratio_thresh
-                if tlwh[2] * tlwh[3] > config.min_box_area and not vertical:
+                if tlwh[2] * tlwh[3] > config.min_box_area:
                     online_tlwhs.append(tlwh)
                     online_ids.append(tid)
                     online_scores.append(t.score)
