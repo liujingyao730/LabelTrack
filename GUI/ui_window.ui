@@ -341,6 +341,7 @@
    <addaction name="actionGt"/>
    <addaction name="actionSave"/>
    <addaction name="separator"/>
+   <addaction name="actionEnableStablizer"/>
   </widget>
   <widget class="QToolBar" name="toolBarVertical">
    <property name="windowTitle">
@@ -531,6 +532,17 @@
    </property>
    <property name="toolTip">
     <string>清除所有标注框</string>
+   </property>
+  </action>
+  <action name="actionEnableStablizer">
+   <property name="text">
+    <string>开启稳定化</string>
+   </property>
+   <property name="toolTip">
+    <string>点选开启视频稳定化</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+S</string>
    </property>
   </action>
  </widget>
