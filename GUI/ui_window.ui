@@ -533,6 +533,14 @@
     <string>清除所有标注框</string>
    </property>
   </action>
+  <action name="actionConfig">
+   <property name="text">
+    <string>CFG</string>
+   </property>
+   <property name="toolTip">
+    <string>模型参数调整</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

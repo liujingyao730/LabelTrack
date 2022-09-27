@@ -24,6 +24,7 @@ import GUI.utils as utils
 from GUI.ustr import ustr
 from GUI.load_worker import loadWorker
 from GUI.model_dialog import ModelDialog
+from GUI.config_dialog import ConfigDialog
 
 # GPU渲染，加速
 if hasattr(Qt, 'AA_ShareOpenGLContexts'):
@@ -114,12 +115,14 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.toolBarVertical.addAction(self.actionLabelType)
         self.toolBarVertical.addSeparator()
         self.toolBarVertical.addAction(self.actionModel)
+        self.toolBarVertical.addAction(self.actionConfig)
         self.toolBarVertical.addAction(self.actionTrack)
         self.actionDelete.triggered.connect(self.canvas.delete_shape)
         self.actionModel.triggered.connect(self.modelSelect)
         self.actionAnnot.triggered.connect(self.set_create_mode)
         self.actionLabelType.triggered.connect(self.set_label_type)
         self.actionTrack.triggered.connect(self.canvas.track_frame)  # 自动跟踪
+        self.actionConfig.triggered.connect(self.modifyConfig)
 
         # 输入帧数栏
         self.lineCurFrame.returnPressed.connect(self.jump_frame)
@@ -348,6 +351,25 @@ class MyWindow(QMainWindow, QtStyleTools):
         h_bar.setValue(new_h_bar_value)
         v_bar.setValue(new_v_bar_value)
 
+    def modifyConfig(self):
+        # 模型使用的参数设置框
+        if self.currentModel is not None:
+            yaml_path = "./Tracking/configs/tph_yolov5.yaml"
+            if "byte" in self.currentModel:
+                yaml_path = "./Tracking/configs/bytetrack_m.yaml"
+            elif "tiny_vd" in self.currentModel:
+                yaml_path = "./Tracking/configs/yolox_tiny_vd.yaml"
+            elif "m_vd" in self.currentModel:
+                yaml_path = "./Tracking/configs/yolox_m_vd.yaml"
+            elif "l_vd" in self.currentModel:
+                yaml_path = "./Tracking/configs/yolox_l_vd.yaml"
+            elif "tph" in self.currentModel:
+                yaml_path = "./Tracking/configs/tph_yolov5.yaml"
+
+            configDialog = ConfigDialog(parent=self, yaml_path=yaml_path)
+            configDialog.pop_up()
+            configDialog.push_up()
+
     def modelSelect(self):
         self.modelDialog.pop_up()
         self.currentModel = self.modelDialog.currentModel
@@ -485,6 +507,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         key = ev.key()
         if key == Qt.Key_Delete or key == Qt.Key_S:
             self.delete_selected_shape()
+        if key == Qt.Key_R:
+            self.canvas.rectify_selected()
 
     def closeEvent(self, event):
         sys.exit(0)
