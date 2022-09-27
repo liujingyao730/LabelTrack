@@ -687,6 +687,8 @@ class canvas(QWidget):
             if toFrame is None or toFrame <= 0:
                 return
 
+            rect_shapes = []
+
             if toFrame < self.selected_shape.frameId and targetId >= 1:
                 # 与之前的帧匹配, 首先找到首帧目标
                 shape0 = None
@@ -704,6 +706,42 @@ class canvas(QWidget):
 
                 # 计算中间帧的插值
                 rect_shapes = self.interpolate(shape0, shape1)
+
+            elif toFrame > self.selected_shape.frameId:
+                shape0 = self.selected_shape
+                generate_line_color, generate_fill_color = generate_color_by_text(shape0.label)
+                tracker = cv2.legacy.TrackerCSRT_create()
+                x, y = shape0.points[0].x(), shape0.points[0].y()
+                w = shape0.points[2].x() - x
+                h = shape0.points[2].y() - y
+                curFrameId = shape0.frameId
+                bbox = (x, y, w, h)
+                tracker.init(self.imgFrames[curFrameId - 1], bbox)
+
+                while curFrameId < toFrame:
+                    curFrameId += 1
+                    ok, bbox = tracker.update(self.imgFrames[curFrameId - 1])
+                    leftTop = QPointF(bbox[0], bbox[1])
+                    rightTop = QPointF(bbox[0] + bbox[2], bbox[1])
+                    rightDown = QPointF(bbox[0] + bbox[2], bbox[1] + bbox[3])
+                    leftDown = QPointF(bbox[0], bbox[1] + bbox[3])
+                    points = [leftTop, rightTop, rightDown, leftDown]
+                    track_shape = Shape()
+                    track_shape.frameId = curFrameId
+                    track_shape.score = shape0.score
+                    track_shape.auto = shape0.auto
+                    self.set_shape_label(track_shape, shape0.label, shape0.id, generate_line_color, generate_fill_color)
+                    for pos in points:
+                        if self.out_of_pixmap(pos):
+                            size = self.pixmap.size()
+                            clipped_x = min(max(0, pos.x()), size.width())
+                            clipped_y = min(max(0, pos.y()), size.height())
+                            pos = QPointF(clipped_x, clipped_y)
+                        track_shape.add_point(pos)
+                    track_shape.close()
+                    rect_shapes.append(track_shape)
+
+            if len(rect_shapes) > 0:
                 ocp_shape = None
                 for rect_shape in rect_shapes:
                     frame_shapes = [s for s in self.shapes if s.frameId == rect_shape.frameId]
@@ -738,5 +776,3 @@ class canvas(QWidget):
                     if isPadding and ocp_shape is None:
                         self.shapes.append(rect_shape)
 
-            elif toFrame > self.selected_shape.frameId:
-                pass

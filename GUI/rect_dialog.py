@@ -13,7 +13,7 @@ class RectifyDialog(QDialog):
 
         self.toFrame = QLabel("ToFrame: ", self)
         self.frameEdit = QLineEdit(self)
-        self.frameEdit.setText("-1")
+        self.frameEdit.setText("0")
         self.frameEdit.setValidator(QRegExpValidator(QRegExp(r'^[0-9]*[1-9][0-9]*$')))
         hlayoutFrame = QHBoxLayout()
         hlayoutFrame.addWidget(self.toFrame)
@@ -21,7 +21,7 @@ class RectifyDialog(QDialog):
 
         self.targetId = QLabel("TargetId:  ", self)
         self.targetEdit = QLineEdit(self)
-        self.targetEdit.setText("-1")
+        self.targetEdit.setText("0")
         hlayoutTarget = QHBoxLayout()
         hlayoutTarget.addWidget(self.targetId)
         hlayoutTarget.addWidget(self.targetEdit)
