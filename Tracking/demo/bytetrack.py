@@ -264,6 +264,8 @@ def frames_track(test_size, predictor, img_list, config, signal, canvas):
         outputs, img_info = predictor.inference(img, timer)
         if outputs[0] is not None:
             online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], test_size)
+            # TODO stablizer的最理想添加地点，但是会导致整个任务很大的改动。
+            ## NEED CAUTIOUS!!!!!
             T3 = time.time()
             online_tlwhs = []
             online_ids = []

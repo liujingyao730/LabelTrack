@@ -155,6 +155,7 @@ class MyWindow(QMainWindow, QtStyleTools):
 
         # sig enable stablizer
         self.stable = False
+        self.stablizer = None
 
     # 打开文件
     def open_file(self):  # mp4视频文件
@@ -164,6 +165,10 @@ class MyWindow(QMainWindow, QtStyleTools):
             self.videoFileUrl = QUrl.fromLocalFile(self.filePath)
             # 初始化所有图像帧
             cap = cv2.VideoCapture(self.filePath)
+            # if need to be stablized, then init the stablizer here
+            if self.stable:
+                from Tracking.tools.stable import Stable
+                self.stablizer = Stable(capture=cap)
             self.videoWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             self.videoHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             self.canvas.init_frame(self.filePath)
