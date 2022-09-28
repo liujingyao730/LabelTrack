@@ -526,7 +526,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         # if need to be stablized, then init the stablizer here
         if self.stable:
             from Tracking.tools.stable import Stable
-            self.stablizer = Stable(capture=self.cap)
+            self.stablizer = Stable(video_path=self.filePath)
             self.stable_identifier.setText("Stable: ON")
         else:
             self.stablizer = None

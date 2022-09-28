@@ -48,14 +48,14 @@ class Stable:
         'other': 0,
     }
 
-    def __init__(self, capture: cv2.VideoCapture = None) -> None:
-        self.__init_capture(capture)
+    def __init__(self, video_path=None) -> None:
+        if video_path is not None:
+            self.__video_path = video_path
+        self.__init_capture()
         self.__init_surf()
 
-    def __init_capture(self, capture=None):
-        if capture is None:
-            self.__capture['cap'] = cv2.VideoCapture(self.__video_path)
-        self.__capture['cap'] = capture
+    def __init_capture(self):
+        self.__capture['cap'] = cv2.VideoCapture(self.__video_path)
         self.__capture['size'] = (int(self.__capture['cap'].get(cv2.CAP_PROP_FRAME_WIDTH)),
                                   int(self.__capture['cap'].get(cv2.CAP_PROP_FRAME_HEIGHT)))
 
@@ -79,8 +79,11 @@ class Stable:
         self.__capture['cap'].set(cv2.CAP_PROP_POS_FRAMES, self.__capture['frame_count'] - 20)
         state, last_frame = self.__capture['cap'].read()
 
-        self.__surf['surf'] = cv2.xfeatures2d.SIFT_create(
-            self.__config['key_point_count'], 1, 1, 1, 1)
+        # SURF is abondoned because it need specified opencv version,
+        # which version is conflict with the pyqt5 environment.
+        # self.__surf['surf'] = cv2.xfeatures2d.SURF_create(
+        #     self.__config['key_point_count'], 1, 1, 1, 1)
+        self.__surf['surf'] = cv2.SIFT_create(self.__config['key_point_count'])
         self.__surf['kp'], self.__surf['des'] = self.__surf['surf'].detectAndCompute(
             first_frame, None)
         kp, des = self.__surf['surf'].detectAndCompute(last_frame, None)
@@ -237,49 +240,48 @@ class Stable:
 
         return H
 
+    def detect_perspective_from_id(self, frame_id):
+        """input the current frame, and calculate the projective transformation
+            matrix for 2D images.
 
-def detect_perspective_from_id(self, frame_id):
-    """input the current frame, and calculate the projective transformation
-        matrix for 2D images.
+            Args:
+                frame_id (int): the id of frame to be compared with. starts from 1.
 
-        Args:
-            frame_id (int): the id of frame to be compared with. starts from 1.
+            Return:
+                H (numpy.ndarray): homography matrix, (3x3).
+            """
+        # TODO: find  out if it starts from 1.
+        self.__capture['cap'].set(cv2.CAP_PROP_POS_FRAMES, frame_id)
+        state, current_frame = self.__capture['cap'].read()
+        frame_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
 
-        Return:
-            H (numpy.ndarray): homography matrix, (3x3).
-        """
-    # TODO: find  out if it starts from 1.
-    self.__capture['cap'].set(cv2.CAP_PROP_POS_FRAMES, frame_id)
-    state, first_frame = self.__capture['cap'].read()
-    frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        st = time.time()
+        kp, des = self.__surf['surf'].detectAndCompute(frame_gray, None)
+        self.__handle_timer['key'] = int((time.time() - st) * 1000)
 
-    st = time.time()
-    kp, des = self.__surf['surf'].detectAndCompute(frame_gray, None)
-    self.__handle_timer['key'] = int((time.time() - st) * 1000)
+        st = time.time()
+        flann = cv2.FlannBasedMatcher(self.__config['index_params'], self.__config['search_params'])
+        matches = flann.knnMatch(self.__surf['des'], des, k=2)
+        self.__handle_timer['flann'] = int((time.time() - st) * 1000)
 
-    st = time.time()
-    flann = cv2.FlannBasedMatcher(self.__config['index_params'], self.__config['search_params'])
-    matches = flann.knnMatch(self.__surf['des'], des, k=2)
-    self.__handle_timer['flann'] = int((time.time() - st) * 1000)
+        st = time.time()
+        good_match = []
+        for m, n in matches:
+            if m.distance < self.__config['ratio'] * n.distance:
+                good_match.append(m)
 
-    st = time.time()
-    good_match = []
-    for m, n in matches:
-        if m.distance < self.__config['ratio'] * n.distance:
-            good_match.append(m)
+        p1, p2 = [], []
+        for f in good_match:
+            if self.__surf['kp'][f.queryIdx] in self.__surf['template_kp']:
+                p1.append(self.__surf['kp'][f.queryIdx].pt)
+                p2.append(kp[f.trainIdx].pt)
 
-    p1, p2 = [], []
-    for f in good_match:
-        if self.__surf['kp'][f.queryIdx] in self.__surf['template_kp']:
-            p1.append(self.__surf['kp'][f.queryIdx].pt)
-            p2.append(kp[f.trainIdx].pt)
+        H, _ = cv2.findHomography(np.float32(p2), np.float32(p1), cv2.RHO)
+        self.__handle_timer['matrix'] = int((time.time() - st) * 1000)
 
-    H, _ = cv2.findHomography(np.float32(p2), np.float32(p1), cv2.RHO)
-    self.__handle_timer['matrix'] = int((time.time() - st) * 1000)
+        self.print_handle_time()
 
-    self.print_handle_time()
-
-    return H
+        return H
 
 
 if __name__ == '__main__':
