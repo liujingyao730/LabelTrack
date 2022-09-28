@@ -308,6 +308,16 @@
       </item>
      </layout>
     </item>
+    <item>
+     <widget class="QLabel" name="stable_identifier">
+      <property name="layoutDirection">
+       <enum>Qt::RightToLeft</enum>
+      </property>
+      <property name="text">
+       <string>Stable: OFF</string>
+      </property>
+     </widget>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -316,7 +326,7 @@
      <x>0</x>
      <y>0</y>
      <width>1095</width>
-     <height>22</height>
+     <height>23</height>
     </rect>
    </property>
   </widget>
@@ -536,10 +546,10 @@
   </action>
   <action name="actionEnableStablizer">
    <property name="text">
-    <string>开启稳定化</string>
+    <string>输出稳定坐标</string>
    </property>
    <property name="toolTip">
-    <string>点选开启视频稳定化</string>
+    <string>开启/关闭视频稳定化</string>
    </property>
    <property name="shortcut">
     <string>Alt+S</string>

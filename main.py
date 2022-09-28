@@ -154,8 +154,10 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.prev_label_text = ''
 
         # sig enable stablizer
+        self.cap = None
         self.stable = False
         self.stablizer = None
+        self.stable_identifier.setText("Stable: OFF")
 
     # 打开文件
     def open_file(self):  # mp4视频文件
@@ -165,10 +167,6 @@ class MyWindow(QMainWindow, QtStyleTools):
             self.videoFileUrl = QUrl.fromLocalFile(self.filePath)
             # 初始化所有图像帧
             cap = cv2.VideoCapture(self.filePath)
-            # if need to be stablized, then init the stablizer here
-            if self.stable:
-                from Tracking.tools.stable import Stable
-                self.stablizer = Stable(capture=cap)
             self.videoWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             self.videoHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             self.canvas.init_frame(self.filePath)
@@ -463,6 +461,13 @@ class MyWindow(QMainWindow, QtStyleTools):
             max_x = 0
             max_y = 0
             for point in shape.points:
+                if self.stable is True:
+                    H = self.stablizer.detect_perspective_from_id(
+                        shape.frameId)
+                    stable_trans = QTransform()
+                    stable_trans.setMatrix(
+                        H[0, 0], H[0, 1], H[0, 2], H[1, 0], H[1, 1], H[1, 2], H[2, 0], H[2, 1], H[2, 2])
+                    point = stable_trans.map(point)
                 min_x = round(min(min_x, point.x()))
                 min_y = round(min(min_y, point.y()))
                 max_x = round(max(max_x, point.x()))
@@ -518,6 +523,14 @@ class MyWindow(QMainWindow, QtStyleTools):
 
     def enable_stable(self):
         self.stable = not self.stable
+        # if need to be stablized, then init the stablizer here
+        if self.stable:
+            from Tracking.tools.stable import Stable
+            self.stablizer = Stable(capture=self.cap)
+            self.stable_identifier.setText("Stable: ON")
+        else:
+            self.stablizer = None
+            self.stable_identifier.setText("Stable: OFF")
 
 
 if __name__ == "__main__":
