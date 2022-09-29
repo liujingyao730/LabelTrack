@@ -14,6 +14,8 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 
 from qt_material import apply_stylesheet, QtStyleTools, density
 from GUI.shape import Shape
+from GUI.coord_window import CoordDialog
+from GUI.coord_transform import (get_img2grnd, img2grnd)
 
 from GUI.tools import img_cv_to_qt
 from GUI.label_combox import DefaultLabelComboBox
@@ -38,7 +40,7 @@ freeze_support()
 
 
 class MyWindow(QMainWindow, QtStyleTools):
-    
+
     def __init__(self):
         super().__init__()
 
@@ -59,7 +61,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.loadWorker.sinOut.connect(self.update_load_status)
 
         # 状态栏
-        self.statusBar = self.statusBar() # 状态栏
+        self.statusBar = self.statusBar()  # 状态栏
         # Display cursor coordinates at the right of status bar
         self.label_coordinates = QLabel('Hello')
         self.statusBar.addPermanentWidget(self.label_coordinates)
@@ -79,10 +81,10 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.playTimer = QTimer(self)
         self.playTimer.timeout.connect(self.play_frame)
         self.isPlaying = False
-        self.buttonBackward.pressed.connect(lambda: self.jump_frame(dpos = -5))
-        self.buttonPre.pressed.connect(lambda: self.jump_frame(dpos = -1))
-        self.buttonNext.pressed.connect(lambda: self.jump_frame(dpos = 1))
-        self.buttonForward.pressed.connect(lambda: self.jump_frame(dpos = 5))
+        self.buttonBackward.pressed.connect(lambda: self.jump_frame(dpos=-5))
+        self.buttonPre.pressed.connect(lambda: self.jump_frame(dpos=-1))
+        self.buttonNext.pressed.connect(lambda: self.jump_frame(dpos=1))
+        self.buttonForward.pressed.connect(lambda: self.jump_frame(dpos=5))
 
         # 工具栏
         self.toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
@@ -91,10 +93,13 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.actionGt.triggered.connect(self.load_file)
         self.actionSave.triggered.connect(self.save_file)
         self.actionDict.triggered.connect(self.open_dict)
+        self.actionCoordMap.triggered.connect(self.set_coordinate_mapping)
         self.toolBarVertical.addAction(self.actionZoomIn)
-        self.actionZoomIn.triggered.connect(lambda: self.add_zoom(increment = 10))
+        self.actionZoomIn.triggered.connect(
+            lambda: self.add_zoom(increment=10))
         self.toolBarVertical.addAction(self.actionZoomOut)
-        self.actionZoomOut.triggered.connect(lambda: self.add_zoom(increment = -10))
+        self.actionZoomOut.triggered.connect(
+            lambda: self.add_zoom(increment=-10))
         self.toolBarVertical
         self.toolBarVertical.addWidget(self.zoom_widget)
         self.zoom_widget.setValue(100)
@@ -103,11 +108,12 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.toolBarVertical.addSeparator()
 
         self.actionFit.triggered.connect(self.adjust_scale)
-        
+
         # 标签
-        self.labelHint = ['pedestrian', 'people', 'bicycle', 'car', 'van', 'truck', 'tricycle', 'awning-tricycle', 'bus', 'motor', 'others']
+        self.labelHint = ['pedestrian', 'people', 'bicycle', 'car', 'van',
+                          'truck', 'tricycle', 'awning-tricycle', 'bus', 'motor', 'others']
         self.defaultLabel = self.labelHint[0]
-        self.labelCombobox = DefaultLabelComboBox(self, items = self.labelHint)
+        self.labelCombobox = DefaultLabelComboBox(self, items=self.labelHint)
         self.toolBarVertical.addWidget(self.labelCombobox)
         self.toolBarVertical.addAction(self.actionAnnot)
         self.toolBarVertical.addAction(self.actionDelete)
@@ -124,20 +130,23 @@ class MyWindow(QMainWindow, QtStyleTools):
         # 输入帧数栏
         self.lineCurFrame.returnPressed.connect(self.jump_frame)
         # self.lineCurFrame.textChanged.connect(self.jump_frame)
-        
+
         # 滑动条
         self.vedioSlider.setMinimum(1)
-        self.vedioSlider.sliderMoved.connect(self.move_slider) 
+        self.vedioSlider.sliderMoved.connect(self.move_slider)
         self.vedioSlider.valueChanged.connect(self.move_slider)
 
         # 模型选择框
-        self.model = ["tph_yolov5", "yolox_tiny_vd", "yolox_m_vd", "yolox_l_vd"]
+        self.model = ["tph_yolov5", "yolox_tiny_vd",
+                      "yolox_m_vd", "yolox_l_vd"]
         self.modelDialog = ModelDialog(parent=self, model=self.model)
         self.currentModel = self.modelDialog.currentModel
 
         # 标签类型选择框
         self.labelTypes = ["VisDrone", "Yolo", "Coco"]
-        self.labelDialog = ModelDialog(parent=self, model=self.labelTypes, text="Label type:   ") # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
+        # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
+        self.labelDialog = ModelDialog(
+            parent=self, model=self.labelTypes, text="Label type:   ")
         self.currentLabel = self.labelDialog.currentModel
 
         # canvas 信号
@@ -146,9 +155,12 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.canvas.zoomRequest.connect(self.zoom_request)
         self.prev_label_text = ''
 
+        self.coord_trans = None
+
     # 打开文件
-    def open_file(self): # mp4视频文件
-        self.filePath, _ = QFileDialog.getOpenFileName(self, "Open file", "", "mp4 Video (*.mp4)")
+    def open_file(self):  # mp4视频文件
+        self.filePath, _ = QFileDialog.getOpenFileName(
+            self, "Open file", "", "mp4 Video (*.mp4)")
         if self.filePath.endswith('.mp4'):
             self.videoFileUrl = QUrl.fromLocalFile(self.filePath)
             # 初始化所有图像帧
@@ -164,7 +176,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.vedioSlider.setMaximum(self.canvas.numFrames)
 
     def open_dict(self):
-        target_dir_path = ustr(QFileDialog.getExistingDirectory(self, 'Open Directory', '.', QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
+        target_dir_path = ustr(QFileDialog.getExistingDirectory(
+            self, 'Open Directory', '.', QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
         if not os.path.exists(target_dir_path):
             return
         lst = utils.get_image_list(target_dir_path)
@@ -194,13 +207,16 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.statusBar.showMessage("正在加载标注文件，请稍后")
         self.loadWorker.set_label_type(self.currentLabel)
         if self.currentLabel == 'Yolo':
-            self.labelDir = QFileDialog.getExistingDirectory(self, "Choose annotation Directory" "")
+            self.labelDir = QFileDialog.getExistingDirectory(
+                self, "Choose annotation Directory" "")
             if self.labelDir:
                 # 注意一定要先加载视频
-                self.loadWorker.load_yolo_cfig(self.labelDir, videoWidth=self.videoWidth, videoHeight=self.videoHeight)
+                self.loadWorker.load_yolo_cfig(
+                    self.labelDir, videoWidth=self.videoWidth, videoHeight=self.videoHeight)
                 self.loadWorker.start()
         else:
-            self.labelPath, _ = QFileDialog.getOpenFileName(self, "Choose annotation file", "", "txt(*.txt)")
+            self.labelPath, _ = QFileDialog.getOpenFileName(
+                self, "Choose annotation file", "", "txt(*.txt)")
             if self.labelPath:
                 self.loadWorker.load_path(self.labelPath)
                 self.loadWorker.start()
@@ -216,7 +232,7 @@ class MyWindow(QMainWindow, QtStyleTools):
 
     # TODO 条件：没有文件时，超出范围
     # 跳转到某帧
-    def jump_frame(self, dpos = 0):
+    def jump_frame(self, dpos=0):
         num = int(self.lineCurFrame.text())
         # print("跳转到：", num)
         dpos = int(dpos)
@@ -372,16 +388,18 @@ class MyWindow(QMainWindow, QtStyleTools):
         # TODO
         text = self.defaultLabel
         self.prev_label_text = text
-        generate_line_color, generate_fill_color = utils.generate_color_by_text(text)
-        shape = self.canvas.set_last_label(text, generate_line_color, generate_fill_color)
+        generate_line_color, generate_fill_color = utils.generate_color_by_text(
+            text)
+        shape = self.canvas.set_last_label(
+            text, generate_line_color, generate_fill_color)
         # self.add_label(shape)
-        self.canvas.set_editing(True) # edit mode
+        self.canvas.set_editing(True)  # edit mode
         self.actionAnnot.setEnabled(True)
         # self.set_dirty() # 发生更新，可以保存
 
     def current_path(self):
         return os.path.dirname(self.filePath) if self.filePath else '.'
-    
+
     def set_label_type(self):
         # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
         self.labelDialog.pop_up()
@@ -397,13 +415,13 @@ class MyWindow(QMainWindow, QtStyleTools):
             savedPath = self.save_file_dialog(remove_ext=False)
         if savedPath:
             self.save_labels(savedPath)
-    
+
     def save_file_dialog(self, remove_ext=True, dirSave=False):
         if dirSave:
             target_dir_path = ustr(QFileDialog.getExistingDirectory(self, 'Open Directory', '.',
                                                                     QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
             return target_dir_path + os.path.sep + \
-                   os.path.basename(os.path.splitext(self.filePath)[0]) + '.txt'
+                os.path.basename(os.path.splitext(self.filePath)[0]) + '.txt'
         else:
             caption = 'Choose Path to save annotation'
             filters = 'Files Directory(*.*)'
@@ -418,11 +436,12 @@ class MyWindow(QMainWindow, QtStyleTools):
             if dlg.exec_():
                 full_file_path = ustr(dlg.selectedFiles()[0])
                 if remove_ext:
-                    return os.path.splitext(full_file_path)[0]  # Return file path without the extension.
+                    # Return file path without the extension.
+                    return os.path.splitext(full_file_path)[0]
                 else:
                     return full_file_path
         return ''
-        
+
     def save_labels(self, savedPath):
         def convert(shape, box):
             dw = 1. / shape[0]
@@ -444,6 +463,8 @@ class MyWindow(QMainWindow, QtStyleTools):
                 min_y = round(min(min_y, point.y()))
                 max_x = round(max(max_x, point.x()))
                 max_y = round(max(max_y, point.y()))
+
+            # TODO change with the stable function.
             w = max_x - min_x
             h = max_y - min_y
             classId = utils.VISDRONE_CLASSES.index(shape.label)
@@ -451,23 +472,27 @@ class MyWindow(QMainWindow, QtStyleTools):
                 savedPathPrefix = savedPath[:-4]
                 if shape.auto == 'M':
                     for i in range(1, self.canvas.numFrames + 1):
-                        savedFramePath = savedPathPrefix + '_' + str(i) + '.txt'
+                        savedFramePath = savedPathPrefix + \
+                            '_' + str(i) + '.txt'
                         min_x, min_y, w, h = convert([self.videoWidth, self.videoHeight],
                                                      [min_x, min_y, w, h])
                         with open(savedFramePath, 'a') as f:
-                            f.write(f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
+                            f.write(
+                                f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
                 else:
-                    savedFramePath = savedPathPrefix + '_' + str(shape.frameId) + '.txt'
+                    savedFramePath = savedPathPrefix + \
+                        '_' + str(shape.frameId) + '.txt'
                     min_x, min_y, w, h = convert([self.videoWidth, self.videoHeight],
                                                  [min_x, min_y, w, h])
                     with open(savedFramePath, 'a') as f:
-                        f.write(f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
+                        f.write(
+                            f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
             else:
                 if shape.auto == 'M':
                     for i in range(1, self.canvas.numFrames + 1):
                         results.append(
-                        f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
-                    )
+                            f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
+                        )
                 else:
                     results.append(
                         f"{shape.frameId},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
@@ -489,6 +514,35 @@ class MyWindow(QMainWindow, QtStyleTools):
     def closeEvent(self, event):
         sys.exit(0)
 
+    def set_coordinate_mapping(self):
+        """show the dialog to input the following 4 point pairs between 
+        the image pixels and the ground label.
+        """
+        self.coord_dialog = CoordDialog()
+        self.coord_dialog.setWindowTitle("set mappings.")
+        self.coord_dialog.setWindowModality(Qt.ApplicationModal)
+        flag = self.coord_dialog.exec_()
+        self.map_set_flag = (flag is 1)
+
+    def get_coordinate_mapping(self) -> np.ndarray:
+        """gather the 4 point pairs entered in the following dialog,
+        and generate the transform matrix.
+
+        Returns:
+            np.ndarray: the perspective transform matrix.
+        """
+        if self.map_set_flag:
+            src_points, dst_points = self.coord_dialog.gather_mappings()
+            self.coord_trans = get_img2grnd(src_points, dst_points)
+            return self.coord_trans.clone()
+
+        else:
+            dialog = QDialog()
+            dialog.setWindowTitle("Warning")
+            dialog.setWindowModality(Qt.ApplicationModal)
+            dialog.exec_()
+            return None
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -497,4 +551,3 @@ if __name__ == "__main__":
 
     MyWindow.showMaximized()
     sys.exit(app.exec_())
-

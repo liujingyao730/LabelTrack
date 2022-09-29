@@ -316,7 +316,7 @@
      <x>0</x>
      <y>0</y>
      <width>1095</width>
-     <height>22</height>
+     <height>23</height>
     </rect>
    </property>
   </widget>
@@ -341,6 +341,7 @@
    <addaction name="actionGt"/>
    <addaction name="actionSave"/>
    <addaction name="separator"/>
+   <addaction name="actionCoordMap"/>
   </widget>
   <widget class="QToolBar" name="toolBarVertical">
    <property name="windowTitle">
@@ -531,6 +532,17 @@
    </property>
    <property name="toolTip">
     <string>清除所有标注框</string>
+   </property>
+  </action>
+  <action name="actionCoordMap">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>设定坐标映射</string>
+   </property>
+   <property name="toolTip">
+    <string>映射图片像素与真实坐标</string>
    </property>
   </action>
  </widget>
