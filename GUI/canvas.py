@@ -85,6 +85,8 @@ class canvas(QWidget):
         self.load_pixmap(QPixmap.fromImage(Qframe_0))
 
     def change_frame(self, num):
+        if num > len(self.imgFrames):
+            return
         n = num - 1
         self.curFramesId = num
         frame_n = self.imgFrames[n]
