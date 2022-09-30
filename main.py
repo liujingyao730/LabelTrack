@@ -2,6 +2,7 @@ import os
 import sys
 import cv2
 import logging
+import numpy as np
 from multiprocessing import freeze_support
 
 from PyQt5 import QtWidgets
@@ -521,8 +522,11 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.coord_dialog = CoordDialog()
         self.coord_dialog.setWindowTitle("set mappings.")
         self.coord_dialog.setWindowModality(Qt.ApplicationModal)
+        self.coord_dialog.show()
         flag = self.coord_dialog.exec_()
         self.map_set_flag = (flag is 1)
+        src_points, dst_points = self.coord_dialog.gather_mappings()
+        self.coord_trans = get_img2grnd(src_points, dst_points)
 
     def get_coordinate_mapping(self) -> np.ndarray:
         """gather the 4 point pairs entered in the following dialog,
@@ -537,10 +541,8 @@ class MyWindow(QMainWindow, QtStyleTools):
             return self.coord_trans.clone()
 
         else:
-            dialog = QDialog()
-            dialog.setWindowTitle("Warning")
-            dialog.setWindowModality(Qt.ApplicationModal)
-            dialog.exec_()
+            QMessageBox.information(self, "Warning", "the config is not defined.",
+                                    QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             return None
 
 
