@@ -1,56 +1,41 @@
-import cv2
 import time
+import cv2
 import numpy as np
-import os
 
 
 class Stable:
-    # 处理视频文件路径
-    __video_path = '04.mp4'
+    __video_path = None
 
-    # surf 特征提取
     __surf = {
-        # surf算法
-        'surf': None,
-        # 提取的特征点
-        'kp': None,
-        # 描述符
-        'des': None,
-        # 过滤后的特征模板
-        'template_kp': None
+        'surf': None,   # the surf keypoint detector itself
+        'kp': None,     # the keypoints in the first frame
+        'des': None,    # the descriptor of the points in 'kp'
+        'template_kp': None  # first and the last frame keypoint matches
     }
 
     # capture
     __capture = {
-        # 捕捉器
-        'cap': None,
-        # 视频大小
-        'size': None,
-        # 视频总帧
-        'frame_count': None,
-        # 视频帧率
-        'fps': None,
-        'video': None
+        'cap': None,    # the video capturer
+        'size': None,   # the video frame size
+        'frame_count': None,  # the number of the frame in the video
+        'fps': None,    # the fps of the input video
+        'video': None   # the output videowriter
     }
 
-    # 配置
     __config = {
-        # 要保留的最佳特征的数量
+        # if the count is decreased, the time will not be decrease.
+        # detect 5000 keypoints in one frame
         'key_point_count': 5000,
-        # Flann特征匹配
         'index_params': dict(algorithm=0, trees=5),
         'search_params': dict(checks=50),
+        # the quality of the matching of keypoints. range(0.0, 1.0)
+        # bigger ratio, quality is better
         'ratio': 0.5,
-        'frame_count': 20000
+        'frame_count': 20000  # frame number limit of the output video
     }
 
-    # 当前处理帧数
     __current_frame = 0
-
-    # 需要处理帧数
     __handle_count = 0
-
-    # 处理时间
     __handle_timer = {
         'init': 0,
         'handle': 0,
@@ -63,21 +48,6 @@ class Stable:
         'other': 0,
     }
 
-    # 帧队列
-    __frame_queue = None
-
-    # 需要写入的帧队列
-    __write_frame_queue = None
-
-    # 特征提取列表
-    __surf_list = []
-
-    def __init__(self):
-        self.__dx = []
-        self.__dy = []
-        self.__rot = []
-
-    # 初始化capture
     def __init_capture(self):
         self.__capture['cap'] = cv2.VideoCapture(self.__video_path)
         self.__capture['size'] = (int(self.__capture['cap'].get(cv2.CAP_PROP_FRAME_WIDTH)),
@@ -94,7 +64,6 @@ class Stable:
 
         self.__handle_count = min(self.__config['frame_count'], self.__capture['frame_count'])
 
-    # 初始化surf
     def __init_surf(self):
 
         st = time.time()
@@ -104,18 +73,15 @@ class Stable:
         self.__capture['cap'].set(cv2.CAP_PROP_POS_FRAMES, self.__capture['frame_count'] - 20)
         state, last_frame = self.__capture['cap'].read()
 
-        self.__surf['surf'] = cv2.xfeatures2d.SURF_create(self.__config['key_point_count'], 1, 1, 1, 1)
-
-        # nfeatures：默认为0，要保留的最佳特征的数量。特征按其分数排名（在SIFT算法中按局部对比度排序）
-        # nOctaveLayers：默认为3，金字塔每组(Octave)有多少层。3是D. Lowe纸中使用的值。
-        # contrastThreshold：默认为0.04，对比度阈值，用于滤除半均匀（低对比度）区域中的弱特征。阈值越大，检测器产生的特征越少。
-        # edgeThreshold：默认为10，用来过滤边缘特征的阈值。注意，它的意思与contrastThreshold不同，edgeThreshold越大，滤出的特征越少（保留更多特征）。
-        # sigma：默认为1.6，高斯金字塔中的σ。如果使用带有软镜头的弱相机拍摄图像，则可能需要减少数量。
-
-        self.__surf['kp'], self.__surf['des'] = self.__surf['surf'].detectAndCompute(first_frame, None)
+        # SURF is abondoned because it need specified opencv version,
+        # which version is conflict with the pyqt5 environment.
+        # self.__surf['surf'] = cv2.xfeatures2d.SURF_create(
+        #     self.__config['key_point_count'], 1, 1, 1, 1)
+        self.__surf['surf'] = cv2.SIFT_create(self.__config['key_point_count'])
+        self.__surf['kp'], self.__surf['des'] = self.__surf['surf'].detectAndCompute(
+            first_frame, None)
         kp, des = self.__surf['surf'].detectAndCompute(last_frame, None)
 
-        # 快速临近匹配
         flann = cv2.FlannBasedMatcher(self.__config['index_params'], self.__config['search_params'])
         matches = flann.knnMatch(self.__surf['des'], des, k=2)
 
@@ -134,17 +100,16 @@ class Stable:
 
         print("[INFO] init time:{}ms".format(self.__handle_timer['init']))
 
-    # 初始化 队列
-    def __init_data(self):
-        pass
+    # def __init_data(self):
+    #     __frame_queue = None
+    #     __write_frame_queue = None
+    #     __surf_list = []
 
-    # 初始化
     def __init(self):
         self.__init_capture()
         self.__init_surf()
-        self.__init_data()
+        # self.__init_data()
 
-    # 处理
     def __process(self):
 
         self.__current_frame = 1
@@ -156,17 +121,14 @@ class Stable:
 
             start_time = time.time()
 
-            # 抽帧
             success, frame = self.__capture['cap'].read()
             self.__handle_timer['read'] = int((time.time() - start_time) * 1000)
 
-            if not success: return
+            if not success:
+                return
 
-            # 计算
             frame = self.detect_compute(frame)
-            # cv2.imwrite("test.jpg", frame)
 
-            # 写帧
             st = time.time()
             self.__capture['video'].write(frame)
             self.__handle_timer['write'] = int((time.time() - st) * 1000)
@@ -177,64 +139,36 @@ class Stable:
 
             self.print_handle_time()
 
-            # self.show_dx_dy()
-
-    # 视频稳像
     def stable(self, path):
         self.__video_path = path
         self.__init()
         self.__process()
 
-    # 打印耗时
     def print_handle_time(self):
         print(
             "[INFO] handle frame:{}/{} time:{}ms(read:{}ms key:{}ms flann:{}ms matrix:{}ms perspective:{}ms write:{}ms)".
-                format(self.__current_frame,
-                       self.__handle_count,
-                       self.__handle_timer['handle'],
-                       self.__handle_timer['read'],
-                       self.__handle_timer['key'],
-                       self.__handle_timer['flann'],
-                       self.__handle_timer['matrix'],
-                       self.__handle_timer['perspective'],
-                       self.__handle_timer['write']))
+            format(self.__current_frame,
+                   self.__handle_count,
+                   self.__handle_timer['handle'],
+                   self.__handle_timer['read'],
+                   self.__handle_timer['key'],
+                   self.__handle_timer['flann'],
+                   self.__handle_timer['matrix'],
+                   self.__handle_timer['perspective'],
+                   self.__handle_timer['write']))
 
-    # 显示每帧的修复量
-    def show_dx_dy(self):
-        np.array(self.__dx).tofile("dx.bin")
-        np.array(self.__dy).tofile("dy.bin")
-        np.array(self.__rot).tofile("rot.bin")
-
-    #     fig = plt.figure(figsize=(4, 16), dpi=120)
-    #     # L, B, W, H, range 0-1
-    #     ax = fig.add_axes([0, 1, 1, 1])
-    #     ax.set_title("视频抖动情况统计")
-    #     ax.set_xlabel('帧数')
-    #     ax.set_ylabel('旋转角度')
-    #
-    #     ax.plot(x,y)
-    #     plt.imshow
-    #
-    #     angle_y = np.linspace(-np.pi, np.pi, 256, endpoint=True)
-    #     plt.plot(angle_y, )
-
-    # 特征点提取
     def detect_compute(self, frame):
-
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # 计算特征点
         st = time.time()
         kp, des = self.__surf['surf'].detectAndCompute(frame_gray, None)
         self.__handle_timer['key'] = int((time.time() - st) * 1000)
 
-        # 快速临近匹配
         st = time.time()
         flann = cv2.FlannBasedMatcher(self.__config['index_params'], self.__config['search_params'])
         matches = flann.knnMatch(self.__surf['des'], des, k=2)
         self.__handle_timer['flann'] = int((time.time() - st) * 1000)
 
-        # 计算单应性矩阵
         st = time.time()
         good_match = []
         for m, n in matches:
@@ -243,20 +177,16 @@ class Stable:
 
         p1, p2 = [], []
         for f in good_match:
-            # 存在与模板特征点中
             if self.__surf['kp'][f.queryIdx] in self.__surf['template_kp']:
                 p1.append(self.__surf['kp'][f.queryIdx].pt)
                 p2.append(kp[f.trainIdx].pt)
 
         H, _ = cv2.findHomography(np.float32(p2), np.float32(p1), cv2.RHO)
-        self.__dx.append(H[0, 2])
-        self.__dy.append(H[1, 2])
-        self.__rot.append(np.arctan(H[0, 0]))
         self.__handle_timer['matrix'] = int((time.time() - st) * 1000)
 
-        # 透视变换
         st = time.time()
-        output_frame = cv2.warpPerspective(frame, H, self.__capture['size'], borderMode=cv2.BORDER_REPLICATE)
+        output_frame = cv2.warpPerspective(
+            frame, H, self.__capture['size'], borderMode=cv2.BORDER_REPLICATE)
         self.__handle_timer['perspective'] = int((time.time() - st) * 1000)
 
         return output_frame
@@ -264,5 +194,4 @@ class Stable:
 
 if __name__ == '__main__':
     s = Stable()
-
-    s.stable('04.mp4')
+    s.stable('D:/BHK/Dataset/dataset_2018TVCG/myvideo/DJI_0002.mp4')
