@@ -2,6 +2,7 @@ import os
 import sys
 import cv2
 import logging
+import numpy as np
 from multiprocessing import freeze_support
 
 from PyQt5 import QtWidgets
@@ -14,6 +15,8 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 
 from qt_material import apply_stylesheet, QtStyleTools, density
 from GUI.shape import Shape
+from GUI.coord_window import CoordDialog
+from GUI.coord_transform import (get_img2grnd, img2grnd)
 
 from GUI.tools import img_cv_to_qt
 from GUI.label_combox import DefaultLabelComboBox
@@ -92,6 +95,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.actionSave.triggered.connect(self.save_file)
         self.actionEnableStablizer.triggered.connect(self.enable_stable)
         self.actionDict.triggered.connect(self.open_dict)
+        self.actionCoordMap.triggered.connect(self.set_coordinate_mapping)
         self.toolBarVertical.addAction(self.actionZoomIn)
         self.actionZoomIn.triggered.connect(
             lambda: self.add_zoom(increment=10))
@@ -158,6 +162,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.stable = False
         self.stablizer = None
         self.stable_identifier.setText("Stable: OFF")
+        self.coord_trans = None
 
     # 打开文件
     def open_file(self):  # mp4视频文件
@@ -472,6 +477,8 @@ class MyWindow(QMainWindow, QtStyleTools):
                 min_y = round(min(min_y, point.y()))
                 max_x = round(max(max_x, point.x()))
                 max_y = round(max(max_y, point.y()))
+
+            # TODO change with the stable function.
             w = max_x - min_x
             h = max_y - min_y
             classId = utils.VISDRONE_CLASSES.index(shape.label)
@@ -531,6 +538,36 @@ class MyWindow(QMainWindow, QtStyleTools):
         else:
             self.stablizer = None
             self.stable_identifier.setText("Stable: OFF")
+
+    def set_coordinate_mapping(self):
+        """show the dialog to input the following 4 point pairs between 
+        the image pixels and the ground label.
+        """
+        self.coord_dialog = CoordDialog()
+        self.coord_dialog.setWindowTitle("set mappings.")
+        self.coord_dialog.setWindowModality(Qt.ApplicationModal)
+        self.coord_dialog.show()
+        flag = self.coord_dialog.exec_()
+        self.map_set_flag = (flag is 1)
+        src_points, dst_points = self.coord_dialog.gather_mappings()
+        self.coord_trans = get_img2grnd(src_points, dst_points)
+
+    def get_coordinate_mapping(self) -> np.ndarray:
+        """gather the 4 point pairs entered in the following dialog,
+        and generate the transform matrix.
+
+        Returns:
+            np.ndarray: the perspective transform matrix.
+        """
+        if self.map_set_flag:
+            src_points, dst_points = self.coord_dialog.gather_mappings()
+            self.coord_trans = get_img2grnd(src_points, dst_points)
+            return self.coord_trans.clone()
+
+        else:
+            QMessageBox.information(self, "Warning", "the config is not defined.",
+                                    QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            return None
 
 
 if __name__ == "__main__":

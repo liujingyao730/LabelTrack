@@ -352,6 +352,7 @@
    <addaction name="actionSave"/>
    <addaction name="separator"/>
    <addaction name="actionEnableStablizer"/>
+   <addaction name="actionCoordMap"/>
   </widget>
   <widget class="QToolBar" name="toolBarVertical">
    <property name="windowTitle">
@@ -551,8 +552,16 @@
    <property name="toolTip">
     <string>开启/关闭视频稳定化</string>
    </property>
-   <property name="shortcut">
-    <string>Alt+S</string>
+  </action>
+  <action name="actionCoordMap">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>设定坐标映射</string>
+   </property>
+   <property name="toolTip">
+    <string>映射图片像素与真实坐标</string>
    </property>
   </action>
  </widget>
