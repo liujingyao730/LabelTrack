@@ -61,10 +61,10 @@ class Stable:
 
         self.__capture['fps'] = self.__capture['cap'].get(cv2.CAP_PROP_FPS)
 
-        self.__capture['video'] = cv2.VideoWriter(self.__video_path.replace('.', '_stable.'),
-                                                  cv2.VideoWriter_fourcc(*"mp4v"),
-                                                  self.__capture['fps'],
-                                                  self.__capture['size'])
+        # self.__capture['video'] = cv2.VideoWriter(self.__video_path.replace('.', '_stable.'),
+        #                                           cv2.VideoWriter_fourcc(*"mp4v"),
+        #                                           self.__capture['fps'],
+        #                                           self.__capture['size'])
 
         self.__capture['frame_count'] = int(self.__capture['cap'].get(cv2.CAP_PROP_FRAME_COUNT))
 

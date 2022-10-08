@@ -202,9 +202,8 @@ class CoordDialog(QDialog, Ui_Dialog):
 
         # src_points = np.float32([[1, 1], [2, 2], [3, 3], [4, 4]])
         # dst_points = np.float32([[1, 1], [2, 2], [3, 3], [4, 4]])
-        print(src_points)
-
-        print(dst_points)
+        # print(src_points)
+        # print(dst_points)
         return src_points, dst_points
 
 

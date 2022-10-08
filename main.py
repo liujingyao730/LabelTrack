@@ -163,6 +163,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.stablizer = None
         self.stable_identifier.setText("Stable: OFF")
         self.coord_trans = None
+        self.map_set_flag = False
 
     # 打开文件
     def open_file(self):  # mp4视频文件
@@ -467,8 +468,12 @@ class MyWindow(QMainWindow, QtStyleTools):
             max_y = 0
             for point in shape.points:
                 if self.stable is True:
+                    # this will cause the matrix calculated 4 times in a box. could be optimized.
                     H = self.stablizer.detect_perspective_from_id(
                         shape.frameId)
+                    self.coord_trans = self.get_coordinate_mapping()
+                    if self.coord_trans is not None:
+                        H = np.matmul(self.coord_trans, H)
                     stable_trans = QTransform()
                     stable_trans.setMatrix(
                         H[0, 0], H[0, 1], H[0, 2], H[1, 0], H[1, 1], H[1, 2], H[2, 0], H[2, 1], H[2, 2])
@@ -550,7 +555,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         flag = self.coord_dialog.exec_()
         self.map_set_flag = (flag is 1)
         src_points, dst_points = self.coord_dialog.gather_mappings()
-        self.coord_trans = get_img2grnd(src_points, dst_points)
+        self.coord_trans = get_img2grnd(src_points, dst_points).copy()
 
     def get_coordinate_mapping(self) -> np.ndarray:
         """gather the 4 point pairs entered in the following dialog,
@@ -562,7 +567,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         if self.map_set_flag:
             src_points, dst_points = self.coord_dialog.gather_mappings()
             self.coord_trans = get_img2grnd(src_points, dst_points)
-            return self.coord_trans.clone()
+            return self.coord_trans.copy()
 
         else:
             QMessageBox.information(self, "Warning", "the config is not defined.",
