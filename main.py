@@ -14,6 +14,7 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 
 from qt_material import apply_stylesheet, QtStyleTools, density
 from GUI.shape import Shape
+import GUI.shape as guishape
 
 from GUI.tools import img_cv_to_qt
 from GUI.label_combox import DefaultLabelComboBox
@@ -471,7 +472,7 @@ class MyWindow(QMainWindow, QtStyleTools):
             classId = utils.VISDRONE_CLASSES.index(shape.label)
             if self.currentLabel == "Yolo":
                 savedPathPrefix = savedPath[:-4]
-                if shape.auto == 'M':
+                if shape.auto == guishape.STATIONARY_OBJECT:
                     for i in range(1, self.canvas.numFrames + 1):
                         savedFramePath = savedPathPrefix + '_' + str(i) + '.txt'
                         min_x, min_y, w, h = convert([self.videoWidth, self.videoHeight],
@@ -485,7 +486,7 @@ class MyWindow(QMainWindow, QtStyleTools):
                     with open(savedFramePath, 'a') as f:
                         f.write(f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
             else:
-                if shape.auto == 'M':
+                if shape.auto == guishape.STATIONARY_OBJECT:
                     for i in range(1, self.canvas.numFrames + 1):
                         results.append(
                         f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
