@@ -44,6 +44,7 @@ paintEvent的绘制过程：
   - <https://www.jianshu.com/p/879a4f2dd77b>
   - <https://blog.csdn.net/W3Chhhhhh/article/details/105468389>
 - 画出当前的十字参考线
+- 绘制完当前的示意图之后，保存shape并重新绘制，防止草稿影响查看。
   
 ## 需要进行的改进
 

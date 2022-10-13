@@ -371,17 +371,17 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.currentModel = self.modelDialog.currentModel
 
     def toggle_draw_mode(self, edit=True):
-        self.canvas.set_editing(edit)
+        self.canvas.set_create()
         self.actionAnnot.setEnabled(edit)
 
     def set_create_mode(self):
         # assert self.advanced()
-        # TODO 这个为啥是false??
+        # 区分EDIT，编辑框 和CREATE 创建框
         self.toggle_draw_mode(False)
 
-    def set_create_road(self, edit=True):
-        self.canvas.set_editing(edit)
-        self.actionAnnotRoad.setEnabled(edit)
+    def set_create_road(self):
+        self.canvas.set_create_road()
+        self.actionAnnotRoad.setEnabled(False)
 
     def default_label_combo_selection_changed(self, index):
         self.defaultLabel = self.labelHint[index]
@@ -389,6 +389,8 @@ class MyWindow(QMainWindow, QtStyleTools):
     # Callback functions:
     def new_shape(self):
         """Pop-up and give focus to the label editor.
+        Will be called after the drawing process and repaint. 
+        include the 
 
         position MUST be in global coordinates.
         """
@@ -397,11 +399,13 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.prev_label_text = text
         generate_line_color, generate_fill_color = utils.generate_color_by_text(
             text)
+        # highlight the final labeld bbox.
         shape = self.canvas.set_last_label(
             text, generate_line_color, generate_fill_color)
         # self.add_label(shape)
-        self.canvas.set_editing(True)  # edit mode
+        self.canvas.set_editing()  # edit mode
         self.actionAnnot.setEnabled(True)
+        self.actionAnnotRoad.setEnabled(True)
         # self.set_dirty() # 发生更新，可以保存
 
     def current_path(self):

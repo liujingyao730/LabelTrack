@@ -72,8 +72,8 @@ class Shape(object):
         return False
 
     def add_point(self, point):
-        if not self.reach_max_points():
-            self.points.append(point)
+        # if not self.reach_max_points():
+        self.points.append(point)
 
     def pop_point(self):
         if self.points:
@@ -104,7 +104,6 @@ class Shape(object):
             # may be desirable.
             # self.drawVertex(vertex_path, 0)
 
-            
             for i, p in enumerate(self.points):
                 line_path.lineTo(p)
                 if self._highlight_point:
@@ -146,11 +145,54 @@ class Shape(object):
             for p in self.points:
                 max_x = max(max_x, p.x())
                 max_y = max(max_y, p.y())
-            painter.fillRect(max_x - 12 * len(_id), max_y - 20, 12 * len(_id), 20, self.line_color)
+            painter.fillRect(max_x - 12 * len(_id), max_y - 20,
+                             12 * len(_id), 20, self.line_color)
             painter.setPen(QColor(255, 255, 255, 255))
-            
-            
+
             painter.drawText(int(max_x - 10*len(_id)), int(max_y - 5), _id)
+            # print("points", self.points)
+
+    def paint_lane(self, painter):
+        if self.points:
+            color = self.select_line_color if self.selected else self.line_color
+            pen = QPen(color)
+            # Try using integer sizes for smoother drawing(?)
+            pen.setWidth(max(2, int(round(4.0 / self.scale))))
+            painter.setPen(pen)
+            idFont = QFont("Monospace", 12, QFont.Bold)
+            painter.setFont(idFont)
+            line_path = QPainterPath()
+            vertex_path = QPainterPath()
+
+            line_path.moveTo(self.points[0])
+
+            for i, p in enumerate(self.points):
+                line_path.lineTo(p)
+                # if self._highlight_point:
+                #     self.draw_vertex(vertex_path, i)
+
+            painter.drawPath(line_path)
+            # painter.drawPath(vertex_path)
+
+            # Draw text at the top-left
+            if self.paint_label:
+                min_x = sys.maxsize
+                min_y = sys.maxsize
+                min_y_label = int(1.25 * self.label_font_size)
+                for point in self.points:
+                    min_x = min(min_x, point.x())
+                    min_y = min(min_y, point.y())
+                if min_x != sys.maxsize and min_y != sys.maxsize:
+                    font = QFont()
+                    font.setPointSize(self.label_font_size)
+                    font.setBold(True)
+                    painter.setFont(font)
+                    if self.label is None:
+                        self.label = ""
+                    if min_y < min_y_label:
+                        min_y += min_y_label
+                    painter.drawText(int(min_x), int(min_y), self.label)
+
             # print("points", self.points)
 
     def draw_vertex(self, path, i):
