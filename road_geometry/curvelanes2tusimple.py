@@ -1,5 +1,5 @@
 '''
-this py program is copy from this documents.
+this py doc is copy from this documents.
 https://github.com/pandamax/Parse_Curvelanes/blob/master/curvelanes2tusimples.py
 convert to Tusimple json/txt format.
 '''
