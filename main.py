@@ -2,6 +2,7 @@ import os
 import sys
 import cv2
 import logging
+import json
 from multiprocessing import freeze_support
 
 from PyQt5 import QtWidgets
@@ -147,7 +148,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.currentModel = self.modelDialog.currentModel
 
         # 标签类型选择框
-        self.labelTypes = ["VisDrone", "Yolo", "Coco"]
+        self.labelTypes = ["VisDrone", "Yolo", "Coco", "CurveLanes"]
         # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
         self.labelDialog = ModelDialog(
             parent=self, model=self.labelTypes, text="Label type:   ")
@@ -422,9 +423,14 @@ class MyWindow(QMainWindow, QtStyleTools):
         # saved_file_name = os.path.splitext(image_file_name)[0]
         if self.currentLabel == "Yolo":
             savedPath = self.save_file_dialog(dirSave=True)
+        elif self.currentLabel == 'CurveLanes':
+            savedPath = self.save_file_dialog(remove_ext=True)
         else:
             savedPath = self.save_file_dialog(remove_ext=False)
-        if savedPath:
+
+        if savedPath and self.currentLabel is 'CurveLanes':
+            self.save_curvelanes(savedPath)
+        elif savedPath:
             self.save_labels(savedPath)
 
     def save_file_dialog(self, remove_ext=True, dirSave=False):
@@ -511,7 +517,27 @@ class MyWindow(QMainWindow, QtStyleTools):
                 f.writelines(results)
                 print(f"save results to {savedPath}")
 
+    def save_curvelanes(self, savedPath):
+        savedPathPrefix = savedPath[:-4]
+        savedFramePath = savedPathPrefix + '_LaneAnnot.json'
+        # add the update current label function
+        result_dict = {}
+        lines = []
+        for lane in self.canvas.shapes:
+            line = []
+            for point in lane.points:
+                point_dict = {'y': str(int(point.y())),
+                              'x': str(int(point.x()))}
+                line.append(point_dict)
+            lines.append(line)
+        result_dict.update({self.roadCombobox.cb.currentText(): lines})
+        assert savedFramePath.split('.')[-1] == 'json'
+        with open(savedFramePath, 'w') as file:
+            json.dump(result_dict, file)
+            # print(str(result_dict))
+
     # 删除选中的框
+
     def delete_selected_shape(self):
         self.canvas.delete_selected()
 
