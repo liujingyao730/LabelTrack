@@ -518,8 +518,8 @@ class MyWindow(QMainWindow, QtStyleTools):
                 print(f"save results to {savedPath}")
 
     def save_curvelanes(self, savedPath):
-        savedPathPrefix = savedPath[:-4]
-        savedFramePath = savedPathPrefix + '_LaneAnnot.json'
+        # savedPathPrefix = savedPath[:-4]
+        savedFramePath = savedPath + '_LaneAnnot.json'
         # add the update current label function
         result_dict = {}
         lines = []
