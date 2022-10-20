@@ -536,7 +536,6 @@ class MyWindow(QMainWindow, QtStyleTools):
         savedFramePath = savedPath
         # add the update current label function
         result_dict = {}
-        lines = []
         for lane in self.canvas.shapes:
             line = []
             for point in lane.points:
