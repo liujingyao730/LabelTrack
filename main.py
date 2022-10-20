@@ -424,7 +424,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         if self.currentLabel == "Yolo":
             savedPath = self.save_file_dialog(dirSave=True)
         elif self.currentLabel == 'CurveLanes':
-            savedPath = self.save_file_dialog(remove_ext=True)
+            savedPath = self.save_file_dialog(remove_ext=False)
         else:
             savedPath = self.save_file_dialog(remove_ext=False)
 
@@ -447,7 +447,12 @@ class MyWindow(QMainWindow, QtStyleTools):
             dlg = QFileDialog(self, caption, open_dialog_path, filters)
             # dlg.setDefaultSuffix(LabelFile.suffix[1:])
             dlg.setAcceptMode(QFileDialog.AcceptSave)
-            filename = os.path.splitext(self.filePath)[0] + '.txt'
+            # select file type with current label type
+            if self.currentLabel is 'CurveLanes':
+                filetype = '.json'
+            else:
+                filetype = '.txt'
+            filename = os.path.splitext(self.filePath)[0] + filetype
             dlg.selectFile(filename)
             dlg.setOption(QFileDialog.DontUseNativeDialog, False)
             if dlg.exec_():
@@ -518,8 +523,7 @@ class MyWindow(QMainWindow, QtStyleTools):
                 print(f"save results to {savedPath}")
 
     def save_curvelanes(self, savedPath):
-        # savedPathPrefix = savedPath[:-4]
-        savedFramePath = savedPath + '_LaneAnnot.json'
+        savedFramePath = savedPath
         # add the update current label function
         result_dict = {}
         lines = []
