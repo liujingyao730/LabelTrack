@@ -378,20 +378,29 @@ class MyWindow(QMainWindow, QtStyleTools):
     def set_create_mode(self):
         # assert self.advanced()
         # 区分EDIT，编辑框 和CREATE 创建框
+        self.default_label = self.labelHint[0]
         self.toggle_draw_mode(False)
 
     def set_create_road(self):
+        self.default_label = self.roadHint[0]
         self.canvas.set_create_road()
         self.actionAnnotRoad.setEnabled(False)
 
-    def default_label_combo_selection_changed(self, index):
-        self.defaultLabel = self.labelHint[index]
+    # def default_label_combo_selection_changed(self, index):
+    #     # if self.canvas.drawing():
+    #     #     self.defaultLabel = self.labelHint[index]
+    #     # elif self.canvas.drawing_road():
+    #         # self.defaultLabel = self.roadHint[index]
+    #     # self.defaultLabel = self.roadHint[index]
 
-    # Callback functions:
+    def default_label_combo_selection_changed(self, selected_item):
+        self.defaultLabel = selected_item
+
+        # Callback functions:
     def new_shape(self):
         """Pop-up and give focus to the label editor.
         Will be called after the drawing process and repaint. 
-        include the 
+        Define the color and label of the shape after all.
 
         position MUST be in global coordinates.
         """
@@ -487,6 +496,7 @@ class MyWindow(QMainWindow, QtStyleTools):
                 max_y = round(max(max_y, point.y()))
             w = max_x - min_x
             h = max_y - min_y
+            # TODO (@yinglong) if not select curcelanes will force exit
             classId = utils.VISDRONE_CLASSES.index(shape.label)
             if self.currentLabel == "Yolo":
                 savedPathPrefix = savedPath[:-4]
@@ -533,8 +543,13 @@ class MyWindow(QMainWindow, QtStyleTools):
                 point_dict = {'y': str(int(point.y())),
                               'x': str(int(point.x()))}
                 line.append(point_dict)
-            lines.append(line)
-        result_dict.update({self.roadCombobox.cb.currentText(): lines})
+            # (@yinglong) this part is stupid, but I cant make it better
+            if lane.label in result_dict.keys():
+                result_dict[lane.label].append(line)
+            else:
+                result_dict.update({lane.label: []})
+                result_dict[lane.label].append(line)
+
         assert savedFramePath.split('.')[-1] == 'json'
         with open(savedFramePath, 'w') as file:
             json.dump(result_dict, file)

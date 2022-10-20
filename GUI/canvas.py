@@ -1,17 +1,18 @@
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-import cv2
 import copy
-from GUI.tools import img_cv_to_qt
-from GUI.trackworker import trackWorker
-from GUI.fileworker import fileWorker
-from GUI.shape import Shape
+
+import cv2
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+
 import GUI.shape as guishape
 from GUI.color import *
-from GUI.utils import *
-
+from GUI.fileworker import fileWorker
 from GUI.label_dialog import LabelDialog
+from GUI.shape import Shape
+from GUI.tools import img_cv_to_qt
+from GUI.trackworker import trackWorker
+from GUI.utils import *
 
 CURSOR_DEFAULT = Qt.ArrowCursor
 CURSOR_POINT = Qt.PointingHandCursor
@@ -142,8 +143,12 @@ class canvas(QWidget):
             return
 
         self.shapeId += 1
+        if self.mode is self.CREATE_ROAD:
+            self.current.label = self.window.default_label
+            self.current.auto = 'L'
+        else:
+            self.current.label = self.window.default_label
         self.current.id = self.shapeId
-        self.current.label = self.window.defaultLabel
         self.current.frameId = self.curFramesId
         self.current.score = 1
         if self.drawing():
@@ -662,8 +667,12 @@ class canvas(QWidget):
     def mouseDoubleClickEvent(self, ev):
         # 修改标签信息
         if self.selected_shape:
-            self.label_dialog = LabelDialog(
-                parent=self, list_item=self.window.labelHint)
+            if self.selected_shape.auto is 'L':
+                self.label_dialog = LabelDialog(
+                    parent=self, list_item=self.window.roadHint)
+            else:
+                self.label_dialog = LabelDialog(
+                    parent=self, list_item=self.window.labelHint)
             for shape in reversed([s for s in self.shapes]):
                 if shape.selected and shape.frameId == self.curFramesId:
                     text, id = self.label_dialog.pop_up(
