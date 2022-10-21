@@ -2,6 +2,7 @@ import os
 import sys
 import cv2
 import logging
+import json
 from multiprocessing import freeze_support
 
 from PyQt5 import QtWidgets
@@ -38,7 +39,7 @@ freeze_support()
 
 
 class MyWindow(QMainWindow, QtStyleTools):
-    
+
     def __init__(self):
         super().__init__()
 
@@ -59,7 +60,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.loadWorker.sinOut.connect(self.update_load_status)
 
         # 状态栏
-        self.statusBar = self.statusBar() # 状态栏
+        self.statusBar = self.statusBar()  # 状态栏
         # Display cursor coordinates at the right of status bar
         self.label_coordinates = QLabel('Hello')
         self.statusBar.addPermanentWidget(self.label_coordinates)
@@ -79,10 +80,10 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.playTimer = QTimer(self)
         self.playTimer.timeout.connect(self.play_frame)
         self.isPlaying = False
-        self.buttonBackward.pressed.connect(lambda: self.jump_frame(dpos = -5))
-        self.buttonPre.pressed.connect(lambda: self.jump_frame(dpos = -1))
-        self.buttonNext.pressed.connect(lambda: self.jump_frame(dpos = 1))
-        self.buttonForward.pressed.connect(lambda: self.jump_frame(dpos = 5))
+        self.buttonBackward.pressed.connect(lambda: self.jump_frame(dpos=-5))
+        self.buttonPre.pressed.connect(lambda: self.jump_frame(dpos=-1))
+        self.buttonNext.pressed.connect(lambda: self.jump_frame(dpos=1))
+        self.buttonForward.pressed.connect(lambda: self.jump_frame(dpos=5))
 
         # 工具栏
         self.toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
@@ -92,9 +93,11 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.actionSave.triggered.connect(self.save_file)
         self.actionDict.triggered.connect(self.open_dict)
         self.toolBarVertical.addAction(self.actionZoomIn)
-        self.actionZoomIn.triggered.connect(lambda: self.add_zoom(increment = 10))
+        self.actionZoomIn.triggered.connect(
+            lambda: self.add_zoom(increment=10))
         self.toolBarVertical.addAction(self.actionZoomOut)
-        self.actionZoomOut.triggered.connect(lambda: self.add_zoom(increment = -10))
+        self.actionZoomOut.triggered.connect(
+            lambda: self.add_zoom(increment=-10))
         self.toolBarVertical
         self.toolBarVertical.addWidget(self.zoom_widget)
         self.zoom_widget.setValue(100)
@@ -103,13 +106,20 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.toolBarVertical.addSeparator()
 
         self.actionFit.triggered.connect(self.adjust_scale)
-        
+
         # 标签
-        self.labelHint = ['pedestrian', 'people', 'bicycle', 'car', 'van', 'truck', 'tricycle', 'awning-tricycle', 'bus', 'motor', 'others']
+        self.labelHint = ['pedestrian', 'people', 'bicycle', 'car', 'van',
+                          'truck', 'tricycle', 'awning-tricycle', 'bus', 'motor', 'others']
         self.defaultLabel = self.labelHint[0]
-        self.labelCombobox = DefaultLabelComboBox(self, items = self.labelHint)
+        self.roadHint = ['solid_line', 'dashed_line', 'solid_solid_line', 'dashed_dashed_line',
+                         'solid_dashed_line', 'dashed_solid_line', 'triple_dashed_line', 'others']
+        self.defaultRoadLabel = self.roadHint[0]
+        self.labelCombobox = DefaultLabelComboBox(self, items=self.labelHint)
+        self.roadCombobox = DefaultLabelComboBox(self, items=self.roadHint)
         self.toolBarVertical.addWidget(self.labelCombobox)
         self.toolBarVertical.addAction(self.actionAnnot)
+        self.toolBarVertical.addWidget(self.roadCombobox)
+        self.toolBarVertical.addAction(self.actionAnnotRoad)
         self.toolBarVertical.addAction(self.actionDelete)
         self.toolBarVertical.addAction(self.actionLabelType)
         self.toolBarVertical.addSeparator()
@@ -118,26 +128,30 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.actionDelete.triggered.connect(self.canvas.delete_shape)
         self.actionModel.triggered.connect(self.modelSelect)
         self.actionAnnot.triggered.connect(self.set_create_mode)
+        self.actionAnnotRoad.triggered.connect(self.set_create_road)
         self.actionLabelType.triggered.connect(self.set_label_type)
         self.actionTrack.triggered.connect(self.canvas.track_frame)  # 自动跟踪
 
         # 输入帧数栏
         self.lineCurFrame.returnPressed.connect(self.jump_frame)
         # self.lineCurFrame.textChanged.connect(self.jump_frame)
-        
+
         # 滑动条
         self.vedioSlider.setMinimum(1)
-        self.vedioSlider.sliderMoved.connect(self.move_slider) 
+        self.vedioSlider.sliderMoved.connect(self.move_slider)
         self.vedioSlider.valueChanged.connect(self.move_slider)
 
         # 模型选择框
-        self.model = ["tph_yolov5", "yolox_tiny_vd", "yolox_m_vd", "yolox_l_vd"]
+        self.model = ["tph_yolov5", "yolox_tiny_vd",
+                      "yolox_m_vd", "yolox_l_vd"]
         self.modelDialog = ModelDialog(parent=self, model=self.model)
         self.currentModel = self.modelDialog.currentModel
 
         # 标签类型选择框
-        self.labelTypes = ["VisDrone", "Yolo", "Coco"]
-        self.labelDialog = ModelDialog(parent=self, model=self.labelTypes, text="Label type:   ") # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
+        self.labelTypes = ["VisDrone", "Yolo", "Coco", "CurveLanes"]
+        # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
+        self.labelDialog = ModelDialog(
+            parent=self, model=self.labelTypes, text="Label type:   ")
         self.currentLabel = self.labelDialog.currentModel
 
         # canvas 信号
@@ -147,8 +161,9 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.prev_label_text = ''
 
     # 打开文件
-    def open_file(self): # mp4视频文件
-        self.filePath, _ = QFileDialog.getOpenFileName(self, "Open file", "", "mp4 Video (*.mp4)")
+    def open_file(self):  # mp4视频文件
+        self.filePath, _ = QFileDialog.getOpenFileName(
+            self, "Open file", "", "mp4 Video (*.mp4)")
         if self.filePath.endswith('.mp4'):
             self.videoFileUrl = QUrl.fromLocalFile(self.filePath)
             # 初始化所有图像帧
@@ -164,7 +179,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.vedioSlider.setMaximum(self.canvas.numFrames)
 
     def open_dict(self):
-        target_dir_path = ustr(QFileDialog.getExistingDirectory(self, 'Open Directory', '.', QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
+        target_dir_path = ustr(QFileDialog.getExistingDirectory(
+            self, 'Open Directory', '.', QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
         if not os.path.exists(target_dir_path):
             return
         lst = utils.get_image_list(target_dir_path)
@@ -194,13 +210,16 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.statusBar.showMessage("正在加载标注文件，请稍后")
         self.loadWorker.set_label_type(self.currentLabel)
         if self.currentLabel == 'Yolo':
-            self.labelDir = QFileDialog.getExistingDirectory(self, "Choose annotation Directory" "")
+            self.labelDir = QFileDialog.getExistingDirectory(
+                self, "Choose annotation Directory" "")
             if self.labelDir:
                 # 注意一定要先加载视频
-                self.loadWorker.load_yolo_cfig(self.labelDir, videoWidth=self.videoWidth, videoHeight=self.videoHeight)
+                self.loadWorker.load_yolo_cfig(
+                    self.labelDir, videoWidth=self.videoWidth, videoHeight=self.videoHeight)
                 self.loadWorker.start()
         else:
-            self.labelPath, _ = QFileDialog.getOpenFileName(self, "Choose annotation file", "", "txt(*.txt)")
+            self.labelPath, _ = QFileDialog.getOpenFileName(
+                self, "Choose annotation file", "", "txt(*.txt)")
             if self.labelPath:
                 self.loadWorker.load_path(self.labelPath)
                 self.loadWorker.start()
@@ -216,7 +235,7 @@ class MyWindow(QMainWindow, QtStyleTools):
 
     # TODO 条件：没有文件时，超出范围
     # 跳转到某帧
-    def jump_frame(self, dpos = 0):
+    def jump_frame(self, dpos=0):
         num = int(self.lineCurFrame.text())
         # print("跳转到：", num)
         dpos = int(dpos)
@@ -353,35 +372,55 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.currentModel = self.modelDialog.currentModel
 
     def toggle_draw_mode(self, edit=True):
-        self.canvas.set_editing(edit)
+        self.canvas.set_create()
         self.actionAnnot.setEnabled(edit)
 
     def set_create_mode(self):
         # assert self.advanced()
+        # 区分EDIT，编辑框 和CREATE 创建框
+        self.default_label = self.labelHint[0]
         self.toggle_draw_mode(False)
 
-    def default_label_combo_selection_changed(self, index):
-        self.defaultLabel = self.labelHint[index]
+    def set_create_road(self):
+        self.default_label = self.roadHint[0]
+        self.canvas.set_create_road()
+        self.actionAnnotRoad.setEnabled(False)
 
-    # Callback functions:
+    # def default_label_combo_selection_changed(self, index):
+    #     # if self.canvas.drawing():
+    #     #     self.defaultLabel = self.labelHint[index]
+    #     # elif self.canvas.drawing_road():
+    #         # self.defaultLabel = self.roadHint[index]
+    #     # self.defaultLabel = self.roadHint[index]
+
+    def default_label_combo_selection_changed(self, selected_item):
+        self.defaultLabel = selected_item
+
+        # Callback functions:
     def new_shape(self):
         """Pop-up and give focus to the label editor.
+        Will be called after the drawing process and repaint. 
+        Define the color and label of the shape after all.
 
         position MUST be in global coordinates.
         """
         # TODO
         text = self.defaultLabel
         self.prev_label_text = text
-        generate_line_color, generate_fill_color = utils.generate_color_by_text(text)
-        shape = self.canvas.set_last_label(text, generate_line_color, generate_fill_color)
+        generate_line_color, generate_fill_color = utils.generate_color_by_text(
+            text)
+        # highlight the final labeld bbox.
+        shape = self.canvas.set_last_label(
+            text, generate_line_color, generate_fill_color)
         # self.add_label(shape)
-        self.canvas.set_editing(True) # edit mode
+        self.canvas.set_editing()  # edit mode
         self.actionAnnot.setEnabled(True)
+        self.actionAnnotRoad.setEnabled(True)
         # self.set_dirty() # 发生更新，可以保存
 
     def current_path(self):
         return os.path.dirname(self.filePath) if self.filePath else '.'
-    
+
     def set_label_type(self):
         # 这里labelDialog服用了原本ModelDialog类，变量名有点别扭需要注意
         self.labelDialog.pop_up()
@@ -393,17 +432,22 @@ class MyWindow(QMainWindow, QtStyleTools):
         # saved_file_name = os.path.splitext(image_file_name)[0]
         if self.currentLabel == "Yolo":
             savedPath = self.save_file_dialog(dirSave=True)
+        elif self.currentLabel == 'CurveLanes':
+            savedPath = self.save_file_dialog(remove_ext=False)
         else:
             savedPath = self.save_file_dialog(remove_ext=False)
-        if savedPath:
+
+        if savedPath and self.currentLabel is 'CurveLanes':
+            self.save_curvelanes(savedPath)
+        elif savedPath:
             self.save_labels(savedPath)
-    
+
     def save_file_dialog(self, remove_ext=True, dirSave=False):
         if dirSave:
             target_dir_path = ustr(QFileDialog.getExistingDirectory(self, 'Open Directory', '.',
                                                                     QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
             return target_dir_path + os.path.sep + \
-                   os.path.basename(os.path.splitext(self.filePath)[0]) + '.txt'
+                os.path.basename(os.path.splitext(self.filePath)[0]) + '.txt'
         else:
             caption = 'Choose Path to save annotation'
             filters = 'Files Directory(*.*)'
@@ -412,17 +456,23 @@ class MyWindow(QMainWindow, QtStyleTools):
             dlg = QFileDialog(self, caption, open_dialog_path, filters)
             # dlg.setDefaultSuffix(LabelFile.suffix[1:])
             dlg.setAcceptMode(QFileDialog.AcceptSave)
-            filename = os.path.splitext(self.filePath)[0] + '.txt'
+            # select file type with current label type
+            if self.currentLabel is 'CurveLanes':
+                filetype = '.json'
+            else:
+                filetype = '.txt'
+            filename = os.path.splitext(self.filePath)[0] + filetype
             dlg.selectFile(filename)
             dlg.setOption(QFileDialog.DontUseNativeDialog, False)
             if dlg.exec_():
                 full_file_path = ustr(dlg.selectedFiles()[0])
                 if remove_ext:
-                    return os.path.splitext(full_file_path)[0]  # Return file path without the extension.
+                    # Return file path without the extension.
+                    return os.path.splitext(full_file_path)[0]
                 else:
                     return full_file_path
         return ''
-        
+
     def save_labels(self, savedPath):
         def convert(shape, box):
             dw = 1. / shape[0]
@@ -446,28 +496,33 @@ class MyWindow(QMainWindow, QtStyleTools):
                 max_y = round(max(max_y, point.y()))
             w = max_x - min_x
             h = max_y - min_y
+            # TODO (@yinglong) if not select curcelanes will force exit
             classId = utils.VISDRONE_CLASSES.index(shape.label)
             if self.currentLabel == "Yolo":
                 savedPathPrefix = savedPath[:-4]
                 if shape.auto == 'M':
                     for i in range(1, self.canvas.numFrames + 1):
-                        savedFramePath = savedPathPrefix + '_' + str(i) + '.txt'
+                        savedFramePath = savedPathPrefix + \
+                            '_' + str(i) + '.txt'
                         min_x, min_y, w, h = convert([self.videoWidth, self.videoHeight],
                                                      [min_x, min_y, w, h])
                         with open(savedFramePath, 'a') as f:
-                            f.write(f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
+                            f.write(
+                                f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
                 else:
-                    savedFramePath = savedPathPrefix + '_' + str(shape.frameId) + '.txt'
+                    savedFramePath = savedPathPrefix + \
+                        '_' + str(shape.frameId) + '.txt'
                     min_x, min_y, w, h = convert([self.videoWidth, self.videoHeight],
                                                  [min_x, min_y, w, h])
                     with open(savedFramePath, 'a') as f:
-                        f.write(f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
+                        f.write(
+                            f"{classId} {min_x:6f} {min_y:.6f} {w:.6f} {h:.6f}\n")
             else:
                 if shape.auto == 'M':
                     for i in range(1, self.canvas.numFrames + 1):
                         results.append(
-                        f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
-                    )
+                            f"{i},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
+                        )
                 else:
                     results.append(
                         f"{shape.frameId},{shape.id},{min_x},{min_y},{w},{h},{shape.score:.2f},{classId},0,0\n"
@@ -477,7 +532,30 @@ class MyWindow(QMainWindow, QtStyleTools):
                 f.writelines(results)
                 print(f"save results to {savedPath}")
 
+    def save_curvelanes(self, savedPath):
+        savedFramePath = savedPath
+        # add the update current label function
+        result_dict = {}
+        for lane in self.canvas.shapes:
+            line = []
+            for point in lane.points:
+                point_dict = {'y': str(int(point.y())),
+                              'x': str(int(point.x()))}
+                line.append(point_dict)
+            # (@yinglong) this part is stupid, but I cant make it better
+            if lane.label in result_dict.keys():
+                result_dict[lane.label].append(line)
+            else:
+                result_dict.update({lane.label: []})
+                result_dict[lane.label].append(line)
+
+        assert savedFramePath.split('.')[-1] == 'json'
+        with open(savedFramePath, 'w') as file:
+            json.dump(result_dict, file)
+            # print(str(result_dict))
+
     # 删除选中的框
+
     def delete_selected_shape(self):
         self.canvas.delete_selected()
 
@@ -497,4 +575,3 @@ if __name__ == "__main__":
 
     MyWindow.showMaximized()
     sys.exit(app.exec_())
-
