@@ -201,7 +201,7 @@ class canvas(QWidget):
 
     def load_pixmap(self, pixmap):
         self.pixmap = pixmap
-        self.shapes = []
+        # self.shapes = []
         self.repaint()
 
     def drawing(self):
@@ -271,7 +271,7 @@ class canvas(QWidget):
             self.un_highlight()
             self.de_select_shape()
         self.prev_point = QPointF()
-        self.repaint()
+        # self.repaint()
 
     def set_create(self):
         self.mode = self.CREATE
