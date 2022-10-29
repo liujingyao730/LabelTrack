@@ -143,3 +143,10 @@ yolox_tiny_best_ckpt.pth.tar
 
 
 Tracking/yolox.egg-info
+
+#detection and tracking output files
+/output_img/*
+/Tracking/detect/*
+/runs/*
+/test_video.mp4
+/auto_video.py
