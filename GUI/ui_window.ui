@@ -494,7 +494,7 @@
     <string>标注车道线</string>
    </property>
    <property name="shortcut">
-    <string>R</string>
+    <string>Q</string>
    </property>
   </action>
   <action name="actionDict">

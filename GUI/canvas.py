@@ -657,12 +657,9 @@ class canvas(QWidget):
                 #     QApplication.setOverrideCursor(QCursor(Qt.OpenHandCursor))
                 #     self.pan_initial_pos = pos
         elif ev.button() == Qt.RightButton:
-            if self.mode == self.CREATE:
-                self.override_cursor(CURSOR_GRAB)
-                self.pan_initial_pos = pos
-            elif self.mode == self.CREATE_ROAD:
-                self.override_cursor(CURSOR_GRAB)
-                self.pan_initial_pos = pos
+            self.override_cursor(CURSOR_GRAB)
+            self.pan_initial_pos = pos
+            if self.mode == self.CREATE_ROAD:
                 self.finalise()
                 QApplication.restoreOverrideCursor()
 
