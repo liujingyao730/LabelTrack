@@ -30,6 +30,7 @@ VISDRONE_CLASSES = (
     "others",
 )
 
+
 def new_icon(icon):
     return QIcon(':/' + icon)
 
@@ -95,28 +96,30 @@ def format_shortcut(text):
 
 
 def generate_color_by_text(text):
-    if text == "pedestrian":
+    if text == "pedestrian" or text == 'solid_line':
         return PERSON_LINE_COLOR, PERSON_FILL_COLOR
-    elif text == "people":
+    elif text == "people" or text == 'dashed_line':
         return PEOPLE_LINE_COLOR, PEOPLE_FILL_COLOR
-    elif text == "bicycle":
+    elif text == "bicycle" or text == 'solid_solid_line':
         return BICYCLE_LINE_COLOR, BICYCLE_FILL_COLOR
-    elif text == "car":
+    elif text == "car" or text == 'dashed_dashed_line':
         return CAR_LINE_COLOR, CAR_FILL_COLOR
-    elif text == "van":
+    elif text == "van" or text == 'solid_dashed_line':
         return VAN_LINE_COLOR, VAN_FILL_COLOR
-    elif text == "truck":
+    elif text == "truck" or text == 'dashed_solid_line':
         return TRUCK_LINE_COLOR, TRUCK_FILL_COLOR
-    elif text == "tricycle":
+    elif text == "tricycle" or text == 'triple_dashed_line':
         return TRICYCLE_LINE_COLOR, TRICYCLE_FILL_COLOR
     elif text == "awning-tricycle":
         return AWNING_TRICYCLE_LINE_COLOR, AWNING_TRICYCLE_FILL_COLOR
     elif text == "bus":
         return BUS_LINE_COLOR, BUS_FILL_COLOR
     elif text == "motor":
-        return MOTOR_LINE_COLOR, MOTOR_FILL_COLOR  
+        return MOTOR_LINE_COLOR, MOTOR_FILL_COLOR
     elif text == "others" or text == "liangzai":
-        return OTHER_LINE_COLOR, OTHER_FILL_COLOR 
+        return OTHER_LINE_COLOR, OTHER_FILL_COLOR
+    else:
+        return OTHER_LINE_COLOR, OTHER_FILL_COLOR
 
     s = ustr(text)
     hash_code = int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16)
@@ -135,15 +138,16 @@ def util_qt_strlistclass():
     return QStringList if have_qstring() else list
 
 
-def natural_sort(list, key=lambda s:s):
+def natural_sort(list, key=lambda s: s):
     """
     Sort the list into natural alphanumeric order.
     """
     def get_alphanum_key_func(key):
-        convert = lambda text: int(text) if text.isdigit() else text
+        def convert(text): return int(text) if text.isdigit() else text
         return lambda s: [convert(c) for c in re.split('([0-9]+)', key(s))]
     sort_key = get_alphanum_key_func(key)
     list.sort(key=sort_key)
+
 
 def get_image_list(path):
     image_names = []
@@ -154,6 +158,7 @@ def get_image_list(path):
             if ext in IMAGE_EXT:
                 image_names.append(apath)
     return image_names
+
 
 # QT4 has a trimmed method, in QT5 this is called strip
 if QT5:

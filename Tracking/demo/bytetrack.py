@@ -196,10 +196,12 @@ class Predictor(object):
         # Run inference
         dt, seen = [0.0, 0.0, 0.0], 0
         img = torch.from_numpy(img).to(device)
+        print("shape of img0: {}".format(img.shape))
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255  # 0 - 255 to 0.0 - 1.0
         if len(img.shape) == 3:
             img = img[None]  # expand for batch dim
+        print("shape of img1: {}".format(img.shape))
         pred = model(img, augment=augment)[0]
         pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
         # Process predictions

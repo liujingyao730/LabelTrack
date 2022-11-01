@@ -139,7 +139,12 @@ cython_debug/
 
 # Visual Studio Code Editor
 .vscode/
-yolox_tiny_best_ckpt.pth.tar
 
-
+# python interpreting info
 Tracking/yolox.egg-info
+
+# output test file root
+Output/
+
+# model parameter info 
+Tracking/weights
