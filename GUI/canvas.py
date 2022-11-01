@@ -159,7 +159,7 @@ class canvas(QWidget):
         self.newShape.emit()
         self.update()
 
-    def update_shape(self, id, frameId, cls_id, tlwh, score, auto='M'):
+    def update_shape(self, id, frameId, cls_id, tlwh, score, auto=guishape.MOVING_OBJECT):
         detectPos = Shape()
         detectPos.id = id
         detectPos.frameId = frameId
