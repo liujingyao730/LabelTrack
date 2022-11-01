@@ -213,6 +213,7 @@ class MyWindow(QMainWindow, QtStyleTools):
     def load_file(self):
         self.statusBar.showMessage("正在加载标注文件，请稍后")
         self.loadWorker.set_label_type(self.currentLabel)
+        self.canvas.shapes.clear()
         if self.currentLabel == 'Yolo':
             self.labelDir = QFileDialog.getExistingDirectory(
                 self, "Choose annotation Directory" "")
