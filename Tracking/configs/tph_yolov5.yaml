@@ -3,8 +3,8 @@ save_result: False
 half: False
 experiment_name: AutoLabelTrack
 name: bytetrack_tph_yolov5_track
-ckpt: ./Tracking/weights/tph-yolov5-best.pt
-device: gpu
+ckpt: ./Tracking\weights\yolov5l-xs-1.pt
+device: 0
 fps: 30
 track_thresh: 0.5
 track_buffer: 30
@@ -12,7 +12,9 @@ match_thresh: 0.8
 aspect_ratio_thresh: 1.6
 min_box_area: 10
 mot20: False
-imgsz: 3000
+imgsz: 3840
 conf_thres: 0.25
 iou_thres: 0.3
-num_classes: 10
+num_classes: 4
+
+

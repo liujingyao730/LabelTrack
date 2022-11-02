@@ -62,3 +62,4 @@ class loadWorker(QThread):
                     if i % 10 == 0:
                         self.sinOut.emit("标注框已加载 {} / {}".format(i, count))
         self.sinOut.emit("标注文件已加载完成")
+        self.canvas.shapeId = self.canvas.shapes[-1].id + 1
