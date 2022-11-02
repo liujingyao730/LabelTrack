@@ -789,6 +789,7 @@ class canvas(QWidget):
         if self.selected_shape:
             dialog = RectifyDialog(parent=self)
             toFrame, targetId, isPadding = dialog.pop_up()
+            select_id = self.selected_shape.id
 
             if toFrame is None or toFrame <= 0:
                 return
@@ -850,9 +851,12 @@ class canvas(QWidget):
                     track_shape.close()
                     rect_shapes.append(track_shape)
 
+            # correction or addition of interpolated shapes.
+            # Problem is, only the interpolated frames could be modified.
             if len(rect_shapes) > 0:
                 ocp_shape = None
                 for rect_shape in rect_shapes:
+                    # if changed to all frames, it will increase the calculation greatly in for loop.
                     frame_shapes = [
                         s for s in self.shapes if s.frameId == rect_shape.frameId]
                     flag = False
@@ -874,7 +878,7 @@ class canvas(QWidget):
                         if self.shapeIOU(s, rect_shape) > iou_thresh:
                             flag = True
                             ind = self.shapes.index(s)
-                            if ocp_shape:
+                            if ocp_shape:  # if the box with same id didnt match
                                 ocp_ind = self.shapes.index(ocp_shape)
                                 self.shapes[ocp_ind].id = self.shapes[ind].id
                             self.set_shape_label(self.shapes[ind], shape0.label, shape0.id,
@@ -885,3 +889,8 @@ class canvas(QWidget):
                     # 完全找不到匹配的，就直接添加一个这样的框
                     if isPadding and ocp_shape is None:
                         self.shapes.append(rect_shape)
+
+            # change the id of bboxes after the selected shape's frame id.
+            for shape in self.shapes:
+                if shape.id == select_id and targetId >= 1:
+                    shape.id = targetId
