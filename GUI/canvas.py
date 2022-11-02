@@ -79,6 +79,9 @@ class canvas(QWidget):
 
     def init_frame(self, path):
         # file worker 线程
+        self.imgFrames.clear()
+        self.numFrames = 0
+        self.shapes.clear()
         self.fileWorker.load_path(path)
         self.fileWorker.start()
 
