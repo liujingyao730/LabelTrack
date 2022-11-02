@@ -164,7 +164,7 @@ class MyWindow(QMainWindow, QtStyleTools):
 
     # 播放视频
     def video_play(self):
-        # self.player.setVideoOutput(self.videoWiget)  
+        # self.player.setVideoOutput(self.videoWiget)
         # self.player.setMedia(QMediaContent(self.videoFileUrl))  # 选取视频文件
         # self.videoWiget.show()
         # self.player.play()
@@ -264,7 +264,7 @@ class MyWindow(QMainWindow, QtStyleTools):
             else:
                 return full_file_path
         return ''
-        
+
     def save_labels(self, savedPath):
         results = []
         for shape in self.canvas.shapes:
@@ -298,7 +298,6 @@ class MyWindow(QMainWindow, QtStyleTools):
     def closeEvent(self, event):
         sys.exit(0)
 
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     MyWindow = MyWindow()
@@ -306,4 +305,3 @@ if __name__ == "__main__":
 
     MyWindow.showMaximized()
     sys.exit(app.exec_())
-

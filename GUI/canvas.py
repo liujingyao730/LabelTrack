@@ -1,16 +1,22 @@
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
+import numpy as np
+import copy
+
 import cv2
-from GUI.tools import img_cv_to_qt
-from GUI.trackworker import trackWorker
-from GUI.fileworker import fileWorker
-from GUI.shape import Shape
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+
 import GUI.shape as guishape
 from GUI.color import *
+from GUI.fileworker import fileWorker
+from GUI.label_dialog import LabelDialog
+from GUI.shape import Shape
+from GUI.tools import img_cv_to_qt
+from GUI.trackworker import trackWorker
 from GUI.utils import *
 
 from GUI.label_dialog import LabelDialog
+from GUI.rect_dialog import RectifyDialog
 
 CURSOR_DEFAULT = Qt.ArrowCursor
 CURSOR_POINT = Qt.PointingHandCursor
@@ -25,12 +31,14 @@ class canvas(QWidget):
     scrollRequest = pyqtSignal(int, int)
     zoomRequest = pyqtSignal(int)
 
-    CREATE, EDIT = list(range(2))
+    CREATE, EDIT, CREATE_ROAD = list(range(3))
 
     epsilon = 11.0
 
     def __init__(self, *args, **kwargs):
         super(canvas, self).__init__(*args, **kwargs)
+        self.img_off = QPointF(0, 0)
+        self.ori_pos = None
         self.trackWorker = trackWorker(self)  # 跟踪线程
         self.trackWorker.sinOut.connect(self.update_track_status)
         self.fileWorker = fileWorker(self)  # 导入文件线程
@@ -46,6 +54,7 @@ class canvas(QWidget):
         self.drawing_line_color = QColor(0, 0, 255)
         self.drawing_rect_color = QColor(0, 0, 255)
         self.line = Shape(line_color=self.drawing_line_color)
+        self.lines = []  # used to save multiple kps in a lane
         self.deltaPos = QPointF()
         self.prev_point = QPointF()
         self.prevRightPoint = QPointF()
@@ -106,7 +115,7 @@ class canvas(QWidget):
 
     def transform_pos(self, point):
         """Convert from widget-logical coordinates to painter-logical coordinates."""
-        return point / self.scale - self.offset_to_center()
+        return point / self.scale - self.offset_to_center() - self.img_off
 
     # These two, along with a call to adjustSize are required for the
     # scroll area.
@@ -140,18 +149,23 @@ class canvas(QWidget):
             return
 
         self.shapeId += 1
+        if self.mode is self.CREATE_ROAD:
+            self.current.label = self.window.default_label
+            self.current.auto = 'L'
+        else:
+            self.current.label = self.window.default_label
         self.current.id = self.shapeId
-        self.current.label = self.window.defaultLabel
         self.current.frameId = self.curFramesId
         self.current.score = 1
-        self.current.close()
+        if self.drawing():
+            self.current.close()
         self.shapes.append(self.current)
         self.current = None
         # self.set_hiding(False)
         self.newShape.emit()
         self.update()
 
-    def update_shape(self, id, frameId, cls_id, tlwh, score, auto='M'):
+    def update_shape(self, id, frameId, cls_id, tlwh, score, auto=guishape.MOVING_OBJECT):
         detectPos = Shape()
         detectPos.id = id
         detectPos.frameId = frameId
@@ -199,36 +213,89 @@ class canvas(QWidget):
     def drawing(self):
         return self.mode == self.CREATE
 
+    def drawing_road(self):
+        return self.mode == self.CREATE_ROAD
+
     def handle_drawing(self, pos):
-        if self.current and self.current.reach_max_points() is False:
-            init_pos = self.current[0]
-            min_x = init_pos.x()
-            min_y = init_pos.y()
-            target_pos = self.line[1]
-            max_x = target_pos.x()
-            max_y = target_pos.y()
+        """after press the left button, need to update the label info in the bbox.
 
-            self.current.add_point(QPointF(max_x, min_y))
-            self.current.add_point(target_pos)
-            self.current.add_point(QPointF(min_x, max_y))
+        Args:
+            pos (_type_): _description_
+        """
+        if self.drawing():
+            if self.current and self.current.reach_max_points() is False:
+                init_pos = self.current[0]
+                min_x = init_pos.x()
+                min_y = init_pos.y()
+                target_pos = self.line[1]
+                max_x = target_pos.x()
+                max_y = target_pos.y()
 
-            self.finalise()
-        elif not self.out_of_pixmap(pos):
-            self.current = Shape()
-            self.current.add_point(pos)
-            self.line.points = [pos, pos]
-            # self.set_hiding()
-            self.drawingPolygon.emit(True)
-            self.update()
+                self.current.add_point(QPointF(max_x, min_y))
+                self.current.add_point(target_pos)
+                self.current.add_point(QPointF(min_x, max_y))
 
-    def set_editing(self, value=True):
-        self.mode = self.EDIT if value else self.CREATE
-        if not value:  # Create
+                self.finalise()
+            elif not self.out_of_pixmap(pos):
+                self.current = Shape()
+                self.current.add_point(pos)
+                self.line.points = [pos, pos]
+                # self.set_hiding()
+                self.drawingPolygon.emit(True)
+                self.update()
+
+        elif self.drawing_road():
+            if self.current:
+                # the other three points.
+                target_pos = self.line[1]
+                self.lines.append(copy.deepcopy(self.line))
+                self.current.add_point(target_pos)
+                self.update()
+                self.line[0] = self.line[1]
+
+            elif not self.out_of_pixmap(pos):
+                # the left-up point
+                self.current = Shape()
+                self.current.add_point(pos)
+                self.line.points = [pos, pos]
+                # self.set_hiding()
+                self.drawingPolygon.emit(True)
+                self.update()
+
+    def set_editing(self, edit=True):
+        """set the canvas status to EDIT.
+
+        warning
+
+        Args:
+            edit (bool, optional): If the canvas status should be true. Defaults to True.
+        """
+        self.mode = self.EDIT if edit else self.CREATE
+        if not edit:  # Create
+            print(
+                'this set_editing should only be used to set EDIT status, so edit should always be true.')
             self.un_highlight()
             self.de_select_shape()
         self.prev_point = QPointF()
         # self.repaint()
-        # self.update()
+
+    def set_create(self):
+        self.mode = self.CREATE
+        self.lines = []
+        self.line = Shape(line_color=self.drawing_line_color)
+        self.un_highlight()
+        self.de_select_shape()
+        self.prev_point = QPointF()
+        self.repaint()
+
+    def set_create_road(self):
+        self.mode = self.CREATE_ROAD
+        self.lines = []
+        self.line = Shape(line_color=self.drawing_line_color)
+        self.un_highlight()
+        self.de_select_shape()
+        self.prev_point = QPointF()
+        self.repaint()
 
     def current_cursor(self):
         cursor = QApplication.overrideCursor()
@@ -350,6 +417,16 @@ class canvas(QWidget):
         self.offsets = QPointF(x1, y1), QPointF(x2, y2)
 
     def set_last_label(self, text, line_color=None, fill_color=None):
+        """Define the attributes like text or color of the latest drawn shape.
+
+        Args:
+            text (string): the label of the bbox
+            line_color (QColor, optional): the color of the bbox line. Defaults to None.
+            fill_color (Qcolor, optional): the color of the bbox inside. Defaults to None.
+
+        Returns:
+            shape (shape): the new shape with attributes.
+        """
         assert text
         self.shapes[-1].label = text
         if line_color:
@@ -381,13 +458,12 @@ class canvas(QWidget):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
 
         p.scale(self.scale, self.scale)
-        p.translate(self.offset_to_center())
+        p.translate(self.offset_to_center() + self.img_off)
 
         p.drawPixmap(QPointF(0, 0), self.pixmap)
 
         Shape.scale = self.scale
         # Shape.label_font_size = self.label_font_size
-
         # 画矩形
         for shape in self.shapes:
             # if (shape.selected or not self._hide_background) and self.isVisible(shape):
@@ -398,17 +474,31 @@ class canvas(QWidget):
                 shape._highlight_point = shape == self.h_shape
                 shape.paint(p)
 
-        # 拖拽时显示矩形
-        if self.current is not None and len(self.line) == 2:
-            left_top = self.line[0]
-            right_bottom = self.line[1]
-            rect_width = right_bottom.x() - left_top.x()
-            rect_height = right_bottom.y() - left_top.y()
-            p.setPen(self.drawing_rect_color)
-            brush = QBrush(Qt.Dense7Pattern)
-            p.setBrush(brush)
-            p.drawRect(int(left_top.x()), int(left_top.y()),
-                       int(rect_width), int(rect_height))
+        if self.mode == self.CREATE:
+            # 拖拽时显示矩形
+            if self.current is not None and len(self.line) == 2:
+                left_top = self.line[0]
+                right_bottom = self.line[1]
+                rect_width = right_bottom.x() - left_top.x()
+                rect_height = right_bottom.y() - left_top.y()
+                p.setPen(self.drawing_rect_color)
+                brush = QBrush(Qt.Dense7Pattern)
+                p.setBrush(brush)
+                p.drawRect(int(left_top.x()), int(left_top.y()),
+                           int(rect_width), int(rect_height))
+        elif self.mode == self.CREATE_ROAD:
+            # 拖拽时显示直线
+            if self.current is not None and len(self.lines) is not 0:
+                for i, lane in enumerate(self.lines):
+                    if len(lane) == 2:
+                        start = lane[0]
+                        end = lane[1]
+                        # TODO use another color
+                        p.setPen(self.drawing_rect_color)
+                        brush = QBrush(Qt.Dense7Pattern)
+                        p.setBrush(brush)
+                        p.drawLine(int(start.x()), int(start.y()),
+                                   int(end.x()), int(end.y()))
 
         # 十字参考线
         if self.drawing() and not self.prev_point.isNull() and not self.out_of_pixmap(self.prev_point):
@@ -430,7 +520,7 @@ class canvas(QWidget):
             self.window.label_coordinates.setText(
                 'X: %d; Y: %d' % (pos.x(), pos.y()))
 
-        if self.drawing():  # create mode
+        if self.drawing() or self.drawing_road():  # create mode
             self.override_cursor(CURSOR_DRAW)
 
             if self.current:
@@ -486,6 +576,14 @@ class canvas(QWidget):
                 current_height = abs(point1.y() - point3.y())
                 self.window.label_coordinates.setText(
                     'Width: %d, Height: %d / X: %d; Y: %d' % (current_width, current_height, pos.x(), pos.y()))
+            else:
+                temp_pos = pos + self.img_off
+                if self.ori_pos is not None:
+                    temp_pos = pos + self.img_off
+                    self.img_off += temp_pos - self.ori_pos
+                self.ori_pos = temp_pos
+                self.repaint()
+
             return
 
         # pixmap moving
@@ -548,10 +646,9 @@ class canvas(QWidget):
     def mousePressEvent(self, ev):
         pos = self.transform_pos(ev.pos())
         if ev.button() == Qt.LeftButton:
-            if self.drawing():
+            if self.drawing() or self.drawing_road():            # start drawing
                 self.handle_drawing(pos)
-            else:
-                pass
+            else:  # not drawing, update the cross reference line.
                 selection = self.select_shape_point(pos)
                 self.prev_point = pos
                 if selection is None:
@@ -562,11 +659,15 @@ class canvas(QWidget):
         elif ev.button() == Qt.RightButton:
             self.override_cursor(CURSOR_GRAB)
             self.pan_initial_pos = pos
+            if self.mode == self.CREATE_ROAD:
+                self.finalise()
+                QApplication.restoreOverrideCursor()
 
         self.update()
 
     def mouseReleaseEvent(self, ev):
         if ev.button() == Qt.LeftButton:
+            self.ori_pos = None
             pos = self.transform_pos(ev.pos())
             if self.drawing():
                 self.handle_drawing(pos)
@@ -576,10 +677,16 @@ class canvas(QWidget):
                 QApplication.restoreOverrideCursor()
 
     def mouseDoubleClickEvent(self, ev):
+        # 双击恢复原状
+        self.img_off = QPointF(0, 0)
         # 修改标签信息
         if self.selected_shape:
-            self.label_dialog = LabelDialog(
-                parent=self, list_item=self.window.labelHint)
+            if self.selected_shape.auto is 'L':
+                self.label_dialog = LabelDialog(
+                    parent=self, list_item=self.window.roadHint)
+            else:
+                self.label_dialog = LabelDialog(
+                    parent=self, list_item=self.window.labelHint)
             for shape in reversed([s for s in self.shapes]):
                 if shape.selected and shape.frameId == self.curFramesId:
                     text, id = self.label_dialog.pop_up(
@@ -613,3 +720,168 @@ class canvas(QWidget):
             v_delta and self.scrollRequest.emit(v_delta, Qt.Vertical)
             h_delta and self.scrollRequest.emit(h_delta, Qt.Horizontal)
         ev.accept()
+
+    def interpolate(self, shape0, shape1):
+        generate_line_color, generate_fill_color = generate_color_by_text(
+            shape0.label)
+
+        shapes = []
+        dis = shape1.frameId - shape0.frameId
+        diff = np.subtract(shape1.points, shape0.points)
+
+        for frameId in range(shape0.frameId + 1, shape1.frameId):
+            offset = (frameId - shape0.frameId) / dis
+            points = shape0.points + diff * offset
+            int_shape = Shape()
+            int_shape.frameId = frameId
+            int_shape.score = shape0.score
+            int_shape.auto = shape0.auto
+            self.set_shape_label(
+                int_shape, shape0.label, shape0.id, generate_line_color, generate_fill_color)
+            for pos in points:
+                if self.out_of_pixmap(pos):
+                    size = self.pixmap.size()
+                    clipped_x = min(max(0, pos.x()), size.width())
+                    clipped_y = min(max(0, pos.y()), size.height())
+                    pos = QPointF(clipped_x, clipped_y)
+                int_shape.add_point(pos)
+            int_shape.close()
+            shapes.append(int_shape)
+
+        return shapes
+
+    def shapeIOU(self, shape0, shape1):
+        def intSeg(seg1, seg2):
+            if seg1[0] > seg2[0]:
+                temp = seg1
+                seg1 = seg2
+                seg2 = temp
+            intLeft = seg2[0]
+            intRight = seg2[1]
+            if seg1[1] < seg2[1]:
+                intRight = seg1[1]
+            if seg2[0] > seg1[1]:
+                intLeft = None
+                intRight = None
+            return [intLeft, intRight]
+
+        wh1 = shape0.points[2] - shape0.points[0]
+        wh2 = shape1.points[2] - shape1.points[0]
+        area1 = wh1.x() * wh1.y()
+        area2 = wh2.x() * wh2.y()
+
+        xSegment = intSeg([shape0.points[0].x(), shape0.points[2].x()],
+                          [shape1.points[0].x(), shape1.points[2].x()])
+
+        ySegment = intSeg([shape0.points[0].y(), shape0.points[2].y()],
+                          [shape1.points[0].y(), shape1.points[2].y()])
+
+        if None in xSegment or None in ySegment:
+            return 0
+
+        intersection = (xSegment[1] - xSegment[0]) * \
+            (ySegment[1] - ySegment[0])
+        union = area1 + area2 - intersection
+
+        return intersection / union
+
+    def rectify_selected(self, iou_thresh=0.85):
+        if self.selected_shape:
+            dialog = RectifyDialog(parent=self)
+            toFrame, targetId, isPadding = dialog.pop_up()
+
+            if toFrame is None or toFrame <= 0:
+                return
+
+            rect_shapes = []
+
+            if toFrame < self.selected_shape.frameId and targetId >= 1:
+                # 与之前的帧匹配, 首先找到首帧目标
+                shape0 = None
+                shape1 = self.selected_shape
+                for shape in self.shapes:
+                    if shape.id == targetId and shape.frameId == toFrame:
+                        shape0 = shape
+                        break
+                if shape0 is None:
+                    return
+
+                generate_line_color, generate_fill_color = generate_color_by_text(
+                    shape0.label)
+                self.set_shape_label(self.shapes[self.shapes.index(shape1)],
+                                     shape0.label, shape0.id, generate_line_color, generate_fill_color)
+
+                # 计算中间帧的插值
+                rect_shapes = self.interpolate(shape0, shape1)
+
+            elif toFrame > self.selected_shape.frameId:
+                shape0 = self.selected_shape
+                generate_line_color, generate_fill_color = generate_color_by_text(
+                    shape0.label)
+                tracker = cv2.legacy.TrackerCSRT_create()
+                x, y = shape0.points[0].x(), shape0.points[0].y()
+                w = shape0.points[2].x() - x
+                h = shape0.points[2].y() - y
+                curFrameId = shape0.frameId
+                bbox = (x, y, w, h)
+                tracker.init(self.imgFrames[curFrameId - 1], bbox)
+
+                while curFrameId < toFrame:
+                    curFrameId += 1
+                    ok, bbox = tracker.update(self.imgFrames[curFrameId - 1])
+                    leftTop = QPointF(bbox[0], bbox[1])
+                    rightTop = QPointF(bbox[0] + bbox[2], bbox[1])
+                    rightDown = QPointF(bbox[0] + bbox[2], bbox[1] + bbox[3])
+                    leftDown = QPointF(bbox[0], bbox[1] + bbox[3])
+                    points = [leftTop, rightTop, rightDown, leftDown]
+                    track_shape = Shape()
+                    track_shape.frameId = curFrameId
+                    track_shape.score = shape0.score
+                    track_shape.auto = shape0.auto
+                    self.set_shape_label(
+                        track_shape, shape0.label, shape0.id, generate_line_color, generate_fill_color)
+                    for pos in points:
+                        if self.out_of_pixmap(pos):
+                            size = self.pixmap.size()
+                            clipped_x = min(max(0, pos.x()), size.width())
+                            clipped_y = min(max(0, pos.y()), size.height())
+                            pos = QPointF(clipped_x, clipped_y)
+                        track_shape.add_point(pos)
+                    track_shape.close()
+                    rect_shapes.append(track_shape)
+
+            if len(rect_shapes) > 0:
+                ocp_shape = None
+                for rect_shape in rect_shapes:
+                    frame_shapes = [
+                        s for s in self.shapes if s.frameId == rect_shape.frameId]
+                    flag = False
+                    for s in frame_shapes:
+                        # 找到该帧中id和目标id一致的框
+                        if s.id == shape0.id:
+                            ocp_shape = s
+                            if self.shapeIOU(s, rect_shape) > iou_thresh:
+                                flag = True
+                                if s.label != shape0.label:
+                                    ind = self.shapes.index(s)
+                                    self.set_shape_label(self.shapes[ind], shape0.label, shape0.id,
+                                                         generate_line_color, generate_fill_color)
+                            break
+                    if flag:
+                        continue
+                    # 不存在id一致或者id一致的框不符合要求要找到正确的框
+                    for s in frame_shapes:
+                        if self.shapeIOU(s, rect_shape) > iou_thresh:
+                            flag = True
+                            ind = self.shapes.index(s)
+                            if ocp_shape:
+                                ocp_ind = self.shapes.index(ocp_shape)
+                                self.shapes[ocp_ind].id = self.shapes[ind].id
+                            self.set_shape_label(self.shapes[ind], shape0.label, shape0.id,
+                                                 generate_line_color, generate_fill_color)
+                            break
+                    if flag:
+                        continue
+                    # 完全找不到匹配的，就直接添加一个这样的框
+                    if isPadding and ocp_shape is None:
+                        self.shapes.append(rect_shape)

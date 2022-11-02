@@ -485,6 +485,18 @@
     <string>W</string>
    </property>
   </action>
+  <action name="actionAnnotRoad">
+   <property name="icon">
+    <iconset>
+     <normaloff>resources/svg/annot.svg</normaloff>resources/svg/annot.svg</iconset>
+   </property>
+   <property name="text">
+    <string>标注车道线</string>
+   </property>
+   <property name="shortcut">
+    <string>Q</string>
+   </property>
+  </action>
   <action name="actionDict">
    <property name="icon">
     <iconset>
@@ -531,6 +543,14 @@
    </property>
    <property name="toolTip">
     <string>清除所有标注框</string>
+   </property>
+  </action>
+  <action name="actionConfig">
+   <property name="text">
+    <string>CFG</string>
+   </property>
+   <property name="toolTip">
+    <string>模型参数调整</string>
    </property>
   </action>
  </widget>

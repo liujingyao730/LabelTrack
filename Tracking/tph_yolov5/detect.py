@@ -6,6 +6,7 @@ Usage:
     $ python path/to/detect.py --source path/to/img.jpg --weights yolov5s.pt --img 640
 """
 
+
 import argparse
 import os
 import platform
