@@ -254,12 +254,12 @@ class Predictor(object):
 
         return outputs, img_info
 
-def frames_track(test_size, predictor, img_list, config, signal, canvas):
+def frames_track(test_size, predictor, img_list, config, signal):
     tracker = BYTETracker(config, frame_rate=config.fps)
     results = []
-    resultImg = []
+    # resultImg = []
     timer = Timer()
-    detectPos = None
+    # detectPos = None
     #statusbar.showMessage()
 
     for frame_id, img in enumerate(img_list, 1):
@@ -267,9 +267,9 @@ def frames_track(test_size, predictor, img_list, config, signal, canvas):
         if outputs[0] is not None:
             online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], test_size)
             T3 = time.time()
-            online_tlwhs = []
-            online_ids = []
-            online_scores = []
+            # online_tlwhs = []
+            # online_ids = []
+            # online_scores = []
             for t in online_targets:
                 # detectPos = Shape()
                 tlwh = t.tlwh
@@ -278,35 +278,36 @@ def frames_track(test_size, predictor, img_list, config, signal, canvas):
 
                 vertical = tlwh[2] / tlwh[3] > config.aspect_ratio_thresh
                 if tlwh[2] * tlwh[3] > config.min_box_area:
-                    online_tlwhs.append(tlwh)
-                    online_ids.append(tid)
-                    online_scores.append(t.score)
+                    # online_tlwhs.append(tlwh)
+                    # online_ids.append(tid)
+                    # online_scores.append(t.score)
                     # save results
-                    results.append(
-                        f"{frame_id},{tid},{tlwh[0]:.2f},{tlwh[1]:.2f},{tlwh[2]:.2f},{tlwh[3]:.2f},{t.score:.2f},-1,-1,-1\n"
-                    )
+                    results.append([frame_id, tid, cid, tlwh, t.score])
+                    # results.append(
+                    #     f"{frame_id},{tid},{tlwh[0]:.2f},{tlwh[1]:.2f},{tlwh[2]:.2f},{tlwh[3]:.2f},{t.score:.2f},-1,-1,-1\n"
+                    # )
                     # 更新图像信息
-                    canvas.update_shape(tid, frame_id, cid, tlwh, t.score, 'A')
+                    # canvas.update_shape(tid, frame_id, cid, tlwh, t.score, 'A')
             timer.toc()
-            online_im = plot_tracking(
-                img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id, fps=1. / timer.average_time
-            )
-            resultImg.append(online_im)
+            # online_im = plot_tracking(
+            #     img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id, fps=1. / timer.average_time
+            # )
+            # resultImg.append(online_im)
         else:
             timer.toc()
             online_im = img_info['raw_img']
 
         if frame_id % 5 == 0:
             signal.emit("已处理帧数 {} / {} ({:.2f} fps)".format(frame_id + 1, len(img_list), 1. / max(1e-5, timer.average_time)))
-            canvas.numFrames = len(resultImg)
+            # canvas.numFrames = len(resultImg)
 
         if frame_id % 20 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
             
-    canvas.numFrames = len(resultImg)
+    # canvas.numFrames = len(resultImg)
     signal.emit("所有图片帧已处理完毕")
 
-    return resultImg
+    return results
         
 
 def image_demo(predictor, vis_folder, current_time, args):

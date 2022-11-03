@@ -70,7 +70,7 @@ class trackWorker(QThread):
                 model(torch.zeros(1, 3, *cfg.imgsz).to(cfg.device).type_as(next(model.parameters())))
             self.sinOut.emit("模型权重加载完成")
             predictor = Predictor(model, exp=cfg, device=cfg.device, fp16=cfg.half, yoloid=yoloid)
-            self.imgFrames = frames_track(self.imgFrames[0].shape, predictor, self.imgFrames, cfg, self.sinOut, self.canvas)
+            results = frames_track(self.imgFrames[0].shape, predictor, self.imgFrames, cfg, self.sinOut)
 
         else:
             exp = get_exp(cfg.exp_file, cfg.name)
@@ -92,4 +92,10 @@ class trackWorker(QThread):
             decoder = None
             predictor = Predictor(model, exp, trt_file, decoder, cfg.device, cfg.fp16)
 
-            self.imgFrames = frames_track(exp, predictor, self.imgFrames, cfg, self.sinOut, self.canvas)
+            results = frames_track(exp, predictor, self.imgFrames, cfg, self.sinOut)
+        
+        for bbox in results:
+            frame_id, tid, cid, tlwh, score = bbox
+            self.canvas.update_shape(tid, frame_id, cid, tlwh, score)
+        
+        self.canvas.repaint()
