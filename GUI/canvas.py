@@ -156,7 +156,7 @@ class canvas(QWidget):
         self.shapeId += 1
         if self.mode is self.CREATE_ROAD:
             self.current.label = self.window.default_label
-            self.current.auto = 'L'
+            self.current.auto = guishape.CURVE_LANES
         else:
             self.current.label = self.window.default_label
         self.current.id = self.shapeId
@@ -686,7 +686,7 @@ class canvas(QWidget):
         self.img_off = QPointF(0, 0)
         # 修改标签信息
         if self.selected_shape:
-            if self.selected_shape.auto is 'L':
+            if self.selected_shape.auto is guishape.CURVE_LANES:
                 self.label_dialog = LabelDialog(
                     parent=self, list_item=self.window.roadHint)
             else:
