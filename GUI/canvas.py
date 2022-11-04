@@ -39,7 +39,7 @@ class canvas(QWidget):
         super(canvas, self).__init__(*args, **kwargs)
         self.img_off = QPointF(0, 0)
         self.ori_pos = None
-        self.trackWorker = trackWorker(self) # 跟踪线程
+        self.trackWorker = trackWorker(self)  # 跟踪线程
         self.trackWorker.sinOut.connect(self.update_track_status)
         self.fileWorker = fileWorker(self)  # 导入文件线程
         self.fileWorker.sinOut.connect(self.update_file_status)
@@ -580,7 +580,7 @@ class canvas(QWidget):
                 current_width = abs(point1.x() - point3.x())
                 current_height = abs(point1.y() - point3.y())
                 self.window.label_coordinates.setText(
-                        'Width: %d, Height: %d / X: %d; Y: %d' % (current_width, current_height, pos.x(), pos.y()))
+                    'Width: %d, Height: %d / X: %d; Y: %d' % (current_width, current_height, pos.x(), pos.y()))
             else:
                 temp_pos = pos + self.img_off
                 if self.ori_pos is not None:
@@ -727,7 +727,8 @@ class canvas(QWidget):
         ev.accept()
 
     def interpolate(self, shape0, shape1):
-        generate_line_color, generate_fill_color = generate_color_by_text(shape0.label)
+        generate_line_color, generate_fill_color = generate_color_by_text(
+            shape0.label)
 
         shapes = []
         dis = shape1.frameId - shape0.frameId
@@ -740,7 +741,8 @@ class canvas(QWidget):
             int_shape.frameId = frameId
             int_shape.score = shape0.score
             int_shape.auto = shape0.auto
-            self.set_shape_label(int_shape, shape0.label, shape0.id, generate_line_color, generate_fill_color)
+            self.set_shape_label(
+                int_shape, shape0.label, shape0.id, generate_line_color, generate_fill_color)
             for pos in points:
                 if self.out_of_pixmap(pos):
                     size = self.pixmap.size()
@@ -782,7 +784,8 @@ class canvas(QWidget):
         if None in xSegment or None in ySegment:
             return 0
 
-        intersection = (xSegment[1] - xSegment[0]) * (ySegment[1] - ySegment[0])
+        intersection = (xSegment[1] - xSegment[0]) * \
+            (ySegment[1] - ySegment[0])
         union = area1 + area2 - intersection
 
         return intersection / union
@@ -791,6 +794,7 @@ class canvas(QWidget):
         if self.selected_shape:
             dialog = RectifyDialog(parent=self)
             toFrame, targetId, isPadding = dialog.pop_up()
+            select_id = self.selected_shape.id
 
             if toFrame is None or toFrame <= 0:
                 return
@@ -808,7 +812,8 @@ class canvas(QWidget):
                 if shape0 is None:
                     return
 
-                generate_line_color, generate_fill_color = generate_color_by_text(shape0.label)
+                generate_line_color, generate_fill_color = generate_color_by_text(
+                    shape0.label)
                 self.set_shape_label(self.shapes[self.shapes.index(shape1)],
                                      shape0.label, shape0.id, generate_line_color, generate_fill_color)
 
@@ -817,7 +822,8 @@ class canvas(QWidget):
 
             elif toFrame > self.selected_shape.frameId:
                 shape0 = self.selected_shape
-                generate_line_color, generate_fill_color = generate_color_by_text(shape0.label)
+                generate_line_color, generate_fill_color = generate_color_by_text(
+                    shape0.label)
                 tracker = cv2.legacy.TrackerCSRT_create()
                 x, y = shape0.points[0].x(), shape0.points[0].y()
                 w = shape0.points[2].x() - x
@@ -838,7 +844,8 @@ class canvas(QWidget):
                     track_shape.frameId = curFrameId
                     track_shape.score = shape0.score
                     track_shape.auto = shape0.auto
-                    self.set_shape_label(track_shape, shape0.label, shape0.id, generate_line_color, generate_fill_color)
+                    self.set_shape_label(
+                        track_shape, shape0.label, shape0.id, generate_line_color, generate_fill_color)
                     for pos in points:
                         if self.out_of_pixmap(pos):
                             size = self.pixmap.size()
@@ -849,10 +856,14 @@ class canvas(QWidget):
                     track_shape.close()
                     rect_shapes.append(track_shape)
 
+            # correction or addition of interpolated shapes.
+            # Problem is, only the interpolated frames could be modified.
             if len(rect_shapes) > 0:
                 ocp_shape = None
                 for rect_shape in rect_shapes:
-                    frame_shapes = [s for s in self.shapes if s.frameId == rect_shape.frameId]
+                    # if changed to all frames, it will increase the calculation greatly in for loop.
+                    frame_shapes = [
+                        s for s in self.shapes if s.frameId == rect_shape.frameId]
                     flag = False
                     for s in frame_shapes:
                         # 找到该帧中id和目标id一致的框
@@ -872,7 +883,7 @@ class canvas(QWidget):
                         if self.shapeIOU(s, rect_shape) > iou_thresh:
                             flag = True
                             ind = self.shapes.index(s)
-                            if ocp_shape:
+                            if ocp_shape:  # if the box with same id didnt match
                                 ocp_ind = self.shapes.index(ocp_shape)
                                 self.shapes[ocp_ind].id = self.shapes[ind].id
                             self.set_shape_label(self.shapes[ind], shape0.label, shape0.id,
@@ -884,3 +895,7 @@ class canvas(QWidget):
                     if isPadding and ocp_shape is None:
                         self.shapes.append(rect_shape)
 
+            # change the id of bboxes after the selected shape's frame id.
+            for shape in self.shapes:
+                if shape.id == select_id and targetId >= 1:
+                    shape.id = targetId
