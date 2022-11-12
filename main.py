@@ -222,6 +222,23 @@ class MyWindow(QMainWindow, QtStyleTools):
                 self.loadWorker.load_yolo_cfig(
                     self.labelDir, videoWidth=self.videoWidth, videoHeight=self.videoHeight)
                 self.loadWorker.start()
+        elif self.currentLabel == "CurveLanes":
+            self.labelPath, _ = QFileDialog.getOpenFileName(
+                self, "Choose annotation file", "", "json(*.json)")
+            if self.labelPath:
+                label_content = open(self.labelPath)
+                label_info = json.load(label_content)
+                lane_num = 0
+
+                for label, lanes in label_info.items():
+                    for lane in lanes:
+                        lane_num += 1
+                        points = []
+                        for point in lane:
+                            points.append(
+                                QPointF(float(point['x']), float(point['y'])))
+                        self.canvas.update_lanes(lane_num, 1, label, points)
+
         else:
             self.labelPath, _ = QFileDialog.getOpenFileName(
                 self, "Choose annotation file", "", "txt(*.txt)")

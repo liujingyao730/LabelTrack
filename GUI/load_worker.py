@@ -6,6 +6,7 @@ from GUI.shape import CURVE_LANES, MOVING_OBJECT
 import sys
 import time
 
+
 class loadWorker(QThread):
     sinOut = pyqtSignal(str)
 
@@ -47,19 +48,22 @@ class loadWorker(QThread):
                         width = int(bbox[2] * self.videoWidth)
                         height = int(bbox[3] * self.videoHeight)
                         tlwh = [left, top, width, height]
-                        self.canvas.update_shape(id=-1, frameId=frameid, cls_id=label, tlwh=tlwh, score=1.0, auto=MOVING_OBJECT)
+                        self.canvas.update_shape(
+                            id=-1, frameId=frameid, cls_id=label, tlwh=tlwh, score=1.0, auto=MOVING_OBJECT)
                 if i % 10 == 0:
                     self.sinOut.emit("标注框已加载 {} / {}".format(i, count))
         elif self.labelType == 'Coco':
             pass
         else:
-        # VisDrone格式
+            # VisDrone格式
             with open(self.labelPath, "r") as f:
-                count = len(open(self.labelPath,'rU').readlines())
+                count = len(open(self.labelPath, 'rU').readlines())
                 for i, line in enumerate(f.readlines(), 1):
                     line = line.strip('\n').split(',')
-                    tlwh = [int(line[2]), int(line[3]), int(line[4]), int(line[5])]
-                    self.canvas.update_shape(int(line[1]), int(line[0]), int(line[7]), tlwh, float(line[6]), MOVING_OBJECT)
+                    tlwh = [int(line[2]), int(line[3]),
+                            int(line[4]), int(line[5])]
+                    self.canvas.update_shape(int(line[1]), int(line[0]), int(
+                        line[7]), tlwh, float(line[6]), MOVING_OBJECT)
                     if i % 10 == 0:
                         self.sinOut.emit("标注框已加载 {} / {}".format(i, count))
         self.sinOut.emit("标注文件已加载完成")

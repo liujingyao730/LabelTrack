@@ -202,6 +202,21 @@ class canvas(QWidget):
         self.newShape.emit()
         self.update()
 
+    def update_lanes(self, id, frame_id, cls_name, points):
+        lane = Shape()
+        lane.frameId = frame_id
+        lane.score = 0
+        lane.auto = guishape.CURVE_LANES
+        generate_line_color, generate_fill_color = generate_color_by_text(
+            cls_name)
+        self.set_shape_label(lane, cls_name, id,
+                             generate_line_color, generate_fill_color)
+        lane.points.extend(points)
+        lane.set_open()
+        self.shapes.append(lane)
+        lane = None
+        self.update()
+
     def delete_shape(self):
         self.current = None
         self.shapeId = 0
