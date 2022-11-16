@@ -91,6 +91,7 @@ def load_from_file(file:str) -> dict:
         for i, line in enumerate(f.readlines(), 1):
             line = [float(i) for i in line.strip('\n').split(',')]
             frame, id, x, y, w, h, score, classid, _, _  = line
+            id = int(id)
             position = [x + w / 2, y + h / 2]
             frame = max(max_frame, frame)
             if id not in results.keys():
@@ -120,12 +121,21 @@ def judge_position(x, y) -> str:
     else:
         return "missing"
 
-def image_show(tra_list:List[trajectory]) -> None:
+def image_show(tra_dict, max_num=None) -> None:
+    cnt = 0
+    for traj in tra_dict.values():
+        cnt += 1
+        if max_num and cnt > max_num:
+            break
+        segs = [np.array(tra) for tra in traj.traj]
+        # print ("drawing trajectory with segs: ", segs)
+        for part in segs:
+            plt.plot(part[:,0], part[:,1])
 
-    t = len(tra_list)
-    for i in range(t):
-        traj = tra_list[i].traj
-        segs = [np.array(tra) for tra in traj]
+    plt.savefig("0.png")
+
+    plt.show()
+
 
 
 def fix_blink(trajs, min_distance=2) -> None:
@@ -171,3 +181,4 @@ if __name__ == "__main__":
 
     file = "0.txt"
     trajs = load_from_file(file)
+    image_show(trajs, 50)
