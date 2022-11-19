@@ -121,6 +121,65 @@ def judge_position(x, y) -> str:
     else:
         return "missing"
 
+def metric(p1:trajectory, p2:trajectory) -> float:
+    x1 = p1.traj[-1][-1]
+    x2 = p2.traj[0][0]
+    t1 = p1.segs[-1][-1]
+    t2 = p2.segs[0][0]
+    time_distance = t2 - t1 if t2 > t1 else 10000
+
+    return np.sqrt((x1[0]-x2[0])**2 + (x1[1]-x2[1])**2) + time_distance
+
+def match_traj(missing_tail_trajs:List[trajectory], missing_prefix_trajs:List[trajectory], threshold=0.0001) -> List[trajectory]:
+
+    m, n = len(missing_tail_trajs), len(missing_prefix_trajs)
+    weights = np.zeros((m, n))
+
+    for i in range(m):
+        for j in range(n):
+            fr = missing_tail_trajs[i]
+            to = missing_prefix_trajs[j]
+            w = 1 / metric(fr, to)
+            weights[i, j] = w
+    
+    row_ind, col_ind = linear_sum_assignment(weights)
+    ans = []
+
+    for i in range(len(col_ind)):
+        if weights[row_ind[i], col_ind[i]] >= threshold:
+            ans.append(merge_trajectory(missing_tail_trajs[row_ind[i]], missing_prefix_trajs[col_ind[i]]))
+            missing_tail_trajs.pop(row_ind[i])
+            missing_prefix_trajs.pop(col_ind[i])
+
+    ans.extend(missing_tail_trajs)
+    ans.extend(missing_prefix_trajs)
+
+    return ans
+
+def fix_trajectory(trajectories:List[trajectory]) -> List[trajectory]:
+
+    miss_tail = []
+    miss_prefix = []
+    i = 0
+    while i < len(trajectories):
+        if trajectories[i].missing_tail:
+            miss_tail.append(trajectories[i])
+            trajectories.pop(i)
+        elif trajectories[i].missing_prefix:
+            miss_prefix.append(trajectories[i])
+            trajectories.pop(i)
+        else:
+            i += 1
+    
+    if miss_prefix and miss_tail:
+        trajectories.extend(match_traj(miss_tail, miss_prefix))
+    else:
+        trajectories.extend(miss_prefix)
+        trajectories.extend(miss_tail)
+
+    return trajectories
+
+
 def image_show(tra_dict, max_num=None) -> None:
     cnt = 0
     for traj in tra_dict.values():
@@ -177,8 +236,17 @@ def get_distance_from_point_to_line(point, line_point1, line_point2):
     distance = np.abs(A * point[0] + B * point[1] + C) / (np.sqrt(A**2 + B**2))
     return distance
 
+# if __name__ == "__main__":
+
+#     file = "0.txt"
+#     trajs = load_from_file(file)
+#     image_show(trajs, 50)
+
+
 if __name__ == "__main__":
 
-    file = "0.txt"
+    file = "4.txt"
     trajs = load_from_file(file)
-    image_show(trajs, 50)
+    trajs = [t for t in trajs.values()]
+    trajs = fix_trajectory(trajs)
+    a = 1
