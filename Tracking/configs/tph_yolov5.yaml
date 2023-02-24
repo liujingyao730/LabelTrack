@@ -16,5 +16,3 @@ imgsz: 3840
 conf_thres: 0.25
 iou_thres: 0.3
 num_classes: 4
-
-

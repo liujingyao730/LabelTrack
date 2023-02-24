@@ -578,7 +578,7 @@ class canvas(QWidget):
 
                 # Display annotation width and height while moving vertex
                 point1 = self.h_shape[1]
-                point3 = self.h_shape[3]
+                point3 = self.h_shape[-1]
                 current_width = abs(point1.x() - point3.x())
                 current_height = abs(point1.y() - point3.y())
                 self.window.label_coordinates.setText(
@@ -591,7 +591,7 @@ class canvas(QWidget):
 
                 # Display annotation width and height while moving shape
                 point1 = self.selected_shape[1]
-                point3 = self.selected_shape[3]
+                point3 = self.selected_shape[-1]
                 current_width = abs(point1.x() - point3.x())
                 current_height = abs(point1.y() - point3.y())
                 self.window.label_coordinates.setText(
@@ -649,7 +649,7 @@ class canvas(QWidget):
                     self.update()
                     # Display annotation width and height while hovering inside
                     point1 = self.h_shape[1]
-                    point3 = self.h_shape[3]
+                    point3 = self.h_shape[-1]
                     current_width = abs(point1.x() - point3.x())
                     current_height = abs(point1.y() - point3.y())
                     self.window.label_coordinates.setText(
