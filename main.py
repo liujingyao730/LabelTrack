@@ -122,6 +122,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.toolBarVertical.addAction(self.actionAnnot)
         self.toolBarVertical.addWidget(self.roadCombobox)
         self.toolBarVertical.addAction(self.actionAnnotRoad)
+        self.toolBarVertical.addAction(self.actionFilterArea) # 过滤区域
         self.toolBarVertical.addAction(self.actionDelete)
         self.toolBarVertical.addAction(self.actionLabelType)
         self.toolBarVertical.addSeparator()
@@ -132,6 +133,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.actionModel.triggered.connect(self.modelSelect)
         self.actionAnnot.triggered.connect(self.set_create_mode)
         self.actionAnnotRoad.triggered.connect(self.set_create_road)
+        self.actionFilterArea.triggered.connect(self.set_create_filter)  # 过滤区域
         self.actionLabelType.triggered.connect(self.set_label_type)
         self.actionTrack.triggered.connect(self.canvas.track_frame)  # 自动跟踪
         self.actionConfig.triggered.connect(self.modifyConfig)
@@ -427,6 +429,11 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.canvas.set_create_road()
         self.actionAnnotRoad.setEnabled(False)
 
+    def set_create_filter(self):
+        self.isFilter = True
+        self.canvas.set_create_filter()
+        self.actionFilterArea.setEnabled(False)
+
     # def default_label_combo_selection_changed(self, index):
     #     # if self.canvas.drawing():
     #     #     self.defaultLabel = self.labelHint[index]
@@ -446,17 +453,21 @@ class MyWindow(QMainWindow, QtStyleTools):
         position MUST be in global coordinates.
         """
         # TODO
-        text = self.defaultLabel
-        self.prev_label_text = text
-        generate_line_color, generate_fill_color = utils.generate_color_by_text(
-            text)
-        # highlight the final labeld bbox.
-        shape = self.canvas.set_last_label(
-            text, generate_line_color, generate_fill_color)
+        if not self.canvas.drawing_filter():
+            text = self.defaultLabel
+            self.prev_label_text = text
+            generate_line_color, generate_fill_color = utils.generate_color_by_text(
+                text)
+            # highlight the final labeld bbox.
+            shape = self.canvas.set_last_label(
+                text, generate_line_color, generate_fill_color)
+        else:
+            print("filter area: ", self.canvas.filter_shapes)
         # self.add_label(shape)
         self.canvas.set_editing()  # edit mode
         self.actionAnnot.setEnabled(True)
         self.actionAnnotRoad.setEnabled(True)
+        self.actionFilterArea.setEnabled(True)
         # self.set_dirty() # 发生更新，可以保存
 
     def current_path(self):

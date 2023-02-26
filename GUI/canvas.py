@@ -31,7 +31,7 @@ class canvas(QWidget):
     scrollRequest = pyqtSignal(int, int)
     zoomRequest = pyqtSignal(int)
 
-    CREATE, EDIT, CREATE_ROAD = list(range(3))
+    CREATE, EDIT, CREATE_ROAD, CREATE_FILTER = list(range(4))
 
     epsilon = 11.0
 
@@ -65,10 +65,15 @@ class canvas(QWidget):
         self.shapeId = 0
         self.selected_shape = None  # save the selected shape here
         self.shapes = []
+        self.filter_shapes = []
         self.h_shape = None
         self.h_vertex = None
         self.window = self.parent().window()
         self.label_dialog = LabelDialog(parent=self, list_item=[])
+
+        # filter flag
+        self.isFilter = False
+
         # TODO: 初始图片
         self.image = img_cv_to_qt(cv2.imread("./GUI/resources/images/MOT.png"))
         self.load_pixmap(QPixmap.fromImage(self.image))
@@ -157,17 +162,25 @@ class canvas(QWidget):
         if self.mode is self.CREATE_ROAD:
             self.current.label = self.window.default_label
             self.current.auto = guishape.CURVE_LANES
-        else:
+        elif self.mode is self.CREATE:
             self.current.label = self.window.default_label
-        self.current.id = self.shapeId
-        self.current.frameId = self.curFramesId
-        self.current.score = 1
-        if self.drawing():
-            self.current.close()
-        self.shapes.append(self.current)
-        self.current = None
-        # self.set_hiding(False)
-        self.newShape.emit()
+        # filter area
+        if self.mode is self.CREATE_FILTER:
+            self.filter_shapes.append(self.current.points)  # save filter area: [[[x1,y1],[x2,y2]], ...]
+            if self.drawing_filter():
+                self.current.close()
+            self.current = None
+            self.newShape.emit()
+        else:
+            self.current.id = self.shapeId
+            self.current.frameId = self.curFramesId
+            self.current.score = 1
+            if self.drawing():
+                self.current.close()
+            self.shapes.append(self.current)
+            self.current = None
+            # self.set_hiding(False)
+            self.newShape.emit()
         self.update()
 
     def update_shape(self, id, frameId, cls_id, tlwh, score, auto=guishape.MOVING_OBJECT):
@@ -236,14 +249,22 @@ class canvas(QWidget):
     def drawing_road(self):
         return self.mode == self.CREATE_ROAD
 
+    def drawing_filter(self):
+        """
+        是否处于绘制过滤区域的状态
+        """
+        return self.mode == self.CREATE_FILTER
+
     def handle_drawing(self, pos):
         """after press the left button, need to update the label info in the bbox.
 
         Args:
             pos (_type_): _description_
         """
-        if self.drawing():
+        if self.drawing() or self.drawing_filter():
+            # print("run handle_drawing")
             if self.current and self.current.reach_max_points() is False:
+                # print("run handle_drawing 2")
                 init_pos = self.current[0]
                 min_x = init_pos.x()
                 min_y = init_pos.y()
@@ -257,6 +278,7 @@ class canvas(QWidget):
 
                 self.finalise()
             elif not self.out_of_pixmap(pos):
+                # print("run handle_drawing 3")
                 self.current = Shape()
                 self.current.add_point(pos)
                 self.line.points = [pos, pos]
@@ -310,6 +332,16 @@ class canvas(QWidget):
 
     def set_create_road(self):
         self.mode = self.CREATE_ROAD
+        self.lines = []
+        self.line = Shape(line_color=self.drawing_line_color)
+        self.un_highlight()
+        self.de_select_shape()
+        self.prev_point = QPointF()
+        self.repaint()
+    
+    def set_create_filter(self):
+        self.isFilter = True
+        self.mode = self.CREATE_FILTER
         self.lines = []
         self.line = Shape(line_color=self.drawing_line_color)
         self.un_highlight()
@@ -447,13 +479,18 @@ class canvas(QWidget):
         Returns:
             shape (shape): the new shape with attributes.
         """
-        assert text
-        self.shapes[-1].label = text
-        if line_color:
-            self.shapes[-1].line_color = line_color
+        if not self.drawing_filter():
+            assert text
+            self.shapes[-1].label = text
+            if line_color:
+                self.shapes[-1].line_color = line_color
 
-        if fill_color:
-            self.shapes[-1].fill_color = fill_color
+            if fill_color:
+                self.shapes[-1].fill_color = fill_color
+        else:
+            self.filter_shapes[-1].label = text
+            self.filter_shapes[-1].line_color = line_color
+            self.filter_shapes[-1].fill_color = fill_color
 
         return self.shapes[-1]
 
@@ -494,7 +531,7 @@ class canvas(QWidget):
                 shape._highlight_point = shape == self.h_shape
                 shape.paint(p)
 
-        if self.mode == self.CREATE:
+        if self.mode == self.CREATE or self.mode == self.CREATE_FILTER:
             # 拖拽时显示矩形
             if self.current is not None and len(self.line) == 2:
                 left_top = self.line[0]
@@ -521,7 +558,7 @@ class canvas(QWidget):
                                    int(end.x()), int(end.y()))
 
         # 十字参考线
-        if self.drawing() and not self.prev_point.isNull() and not self.out_of_pixmap(self.prev_point):
+        if (self.drawing() or self.drawing_filter()) and not self.prev_point.isNull() and not self.out_of_pixmap(self.prev_point):
             p.setPen(QColor(41, 121, 255))
             p.drawLine(int(self.prev_point.x()), 0, int(
                 self.prev_point.x()), int(self.pixmap.height()))
@@ -540,7 +577,7 @@ class canvas(QWidget):
             self.window.label_coordinates.setText(
                 'X: %d; Y: %d' % (pos.x(), pos.y()))
 
-        if self.drawing() or self.drawing_road():  # create mode
+        if self.drawing() or self.drawing_road() or self.drawing_filter():  # create mode
             self.override_cursor(CURSOR_DRAW)
 
             if self.current:
@@ -666,7 +703,7 @@ class canvas(QWidget):
     def mousePressEvent(self, ev):
         pos = self.transform_pos(ev.pos())
         if ev.button() == Qt.LeftButton:
-            if self.drawing() or self.drawing_road():            # start drawing
+            if self.drawing() or self.drawing_road() or self.drawing_filter():            # start drawing
                 self.handle_drawing(pos)
             else:  # not drawing, update the cross reference line.
                 selection = self.select_shape_point(pos)
@@ -689,7 +726,7 @@ class canvas(QWidget):
         if ev.button() == Qt.LeftButton:
             self.ori_pos = None
             pos = self.transform_pos(ev.pos())
-            if self.drawing():
+            if self.drawing() or self.drawing_filter():
                 self.handle_drawing(pos)
                 QApplication.restoreOverrideCursor()
             else:

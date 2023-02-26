@@ -3,6 +3,7 @@ import os
 import os.path as osp
 import time
 import cv2
+import numpy as np
 import yaml
 import torch
 
@@ -196,12 +197,12 @@ class Predictor(object):
         # Run inference
         dt, seen = [0.0, 0.0, 0.0], 0
         img = torch.from_numpy(img).to(device)
-        print("shape of img0: {}".format(img.shape))
+        # print("shape of img0: {}".format(img.shape))
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255  # 0 - 255 to 0.0 - 1.0
         if len(img.shape) == 3:
             img = img[None]  # expand for batch dim
-        print("shape of img1: {}".format(img.shape))
+        # print("shape of img1: {}".format(img.shape))
         pred = model(img, augment=augment)[0]
         pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
         # Process predictions
@@ -254,6 +255,26 @@ class Predictor(object):
 
         return outputs, img_info
 
+
+def is_in_filter_area(bbox, filter_area):
+    """
+    判断bbox是否在filter_area中
+    Args:
+        bbox: (x1, y1, x2, y2)
+        filter_area: (t, l, b, r)
+
+    Returns: True if in filter area, else False
+
+    """
+    x1, y1, x2, y2 = bbox
+    for area in filter_area:
+        ft, fl, fb, fr = area
+        if x1 > fl and x2 < fr and y1 > ft and y2 < fb:
+            # print("bbox: {}, area: {}".format(bbox, area))
+            return True
+    return False
+
+
 def frames_track(test_size, predictor, img_list, config, signal, canvas):
     tracker = BYTETracker(config, frame_rate=config.fps)
     results = []
@@ -261,9 +282,34 @@ def frames_track(test_size, predictor, img_list, config, signal, canvas):
     timer = Timer()
     detectPos = None
     #statusbar.showMessage()
+    filter_area = None
+    if canvas.isFilter:
+        # 将canvas中的filter_shapes转换为（t, l, b, r）的形式，并存入filter_area列表
+        filter_area = []
+        for area in canvas.filter_shapes:
+            # print("area[0]: {}".format(area[0]))
+            # print("x, y: {}, {}".format(area[0].x(), area[0].y()))
+            l, t = area[0].x(), area[0].y()
+            r, b = area[2].x(), area[2].y()
+            filter_area.append([t, l, b, r])
+            # print("t: {}, l: {}, b: {}, r:{}".format(t, l, b, r))
 
     for frame_id, img in enumerate(img_list, 1):
         outputs, img_info = predictor.inference(img, timer)
+        # outputs: [1, dets, 6:{x1, y1, x2, y2, conf, cls_pred}], type: numpy.array
+
+        # filter area without detection
+        if canvas.isFilter:
+            # 删除outputs中在filter_areas中的bbox
+            delete_index = []
+            for i, output in enumerate(outputs[0]):
+                if filter_area is not None:
+                    if is_in_filter_area(output[:4], filter_area):
+                        delete_index.append(i)
+            for i in sorted(delete_index, reverse=True):
+                # print("delete bbox: {}".format(outputs[0][i]))
+                outputs[0] = np.delete(outputs[0], i, axis=0)
+
         if outputs[0] is not None:
             online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], test_size)
             T3 = time.time()
