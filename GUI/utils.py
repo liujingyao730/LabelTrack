@@ -11,24 +11,33 @@ import json
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+
+# from auto_track import VISDRONE_CLASSES
 QT5 = True
 
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
-VISDRONE_CLASSES = (
-    "pedestrian",
-    "people",
-    "bicycle",
+# VISDRONE_CLASSES = (
+#     "pedestrian",
+#     "people",
+#     "bicycle",
+#     "car",
+#     "van",
+#     "truck",
+#     "tricycle",
+#     "awning-tricycle",
+#     "bus",
+#     "motor",
+#     "others",
+# )
+VISDRONE_CLASSES = [
+    "small",
     "car",
-    "van",
     "truck",
-    "tricycle",
-    "awning-tricycle",
-    "bus",
-    "motor",
-    "others",
-)
+    "small"
+]
+
 
 
 def new_icon(icon):

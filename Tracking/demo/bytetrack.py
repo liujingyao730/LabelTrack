@@ -5,6 +5,9 @@ import time
 import cv2
 import yaml
 import torch
+import sys
+sys.path.append("../../")
+sys.path.append("./Tracking")
 
 from loguru import logger
 
@@ -16,8 +19,7 @@ from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracking_utils.timer import Timer
 
 # TODO
-import sys
-sys.path.append("../../")
+
 from PyQt5.QtCore import *
 from GUI.shape import Shape
 from GUI.utils import *
@@ -25,6 +27,37 @@ from GUI.utils import *
 
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
+
+
+def update_shape(self, id, frameId, cls_id, tlwh, score, auto = 'M'):
+        shapes = []
+        detectPos = Shape()
+        detectPos.id = id
+        detectPos.frameId = frameId
+        label = VISDRONE_CLASSES[cls_id]
+        detectPos.label = label
+        detectPos.score = score
+        detectPos.auto = auto
+        generate_line_color, generate_fill_color = generate_color_by_text(detectPos.label)
+        # self.set_shape_label(detectPos, detectPos.label, detectPos.id, generate_line_color, generate_fill_color)
+        leftTop = QPointF(tlwh[0], tlwh[1])
+        rightTop = QPointF(tlwh[0] + tlwh[2], tlwh[1])
+        rightDown = QPointF(tlwh[0] + tlwh[2], tlwh[1] + tlwh[3])
+        leftDown = QPointF(tlwh[0], tlwh[1] + tlwh[3])
+        pointPos = [leftTop, rightTop, rightDown, leftDown]
+        for pos in pointPos:
+            if self.out_of_pixmap(pos):
+                size = self.pixmap.size()
+                clipped_x = min(max(0, pos.x()), size.width())
+                clipped_y = min(max(0, pos.y()), size.height())
+                pos = QPointF(clipped_x, clipped_y)
+            detectPos.add_point(pos)
+        
+        detectPos.close()
+        shapes.append(detectPos)
+        detectPos = None
+        # self.set_hiding(False)
+        return shapes
 
 
 def make_parser():
@@ -196,15 +229,17 @@ class Predictor(object):
         # Run inference
         dt, seen = [0.0, 0.0, 0.0], 0
         img = torch.from_numpy(img).to(device)
-        print("shape of img0: {}".format(img.shape))
+        # print("shape of img0: {}".format(img.shape))
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255  # 0 - 255 to 0.0 - 1.0
         if len(img.shape) == 3:
             img = img[None]  # expand for batch dim
-        print("shape of img1: {}".format(img.shape))
+        # print("shape of img1: {}".format(img.shape))
         pred = model(img, augment=augment)[0]
+        print("pred0: \n ", pred)
         pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
         # Process predictions
+        print("pred1: \n", pred)
         for i, det in enumerate(pred):  # per image
             seen += 1
             im0 = img0.copy()
@@ -250,17 +285,19 @@ class Predictor(object):
                 outputs = postprocess(
                     outputs, self.num_classes, self.confthre, self.nmsthre
                 )
-                #logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+                logger.info("Infer time: {:.4f}s".format(time.time() - t0))
 
         return outputs, img_info
 
 def frames_track(test_size, predictor, img_list, config, signal, canvas):
+# def frames_track(test_size, predictor, img_list, config):
+    shape = []
     tracker = BYTETracker(config, frame_rate=config.fps)
     results = []
     resultImg = []
     timer = Timer()
     detectPos = None
-    #statusbar.showMessage()
+    # statusbar.showMessage()
 
     for frame_id, img in enumerate(img_list, 1):
         outputs, img_info = predictor.inference(img, timer)
@@ -271,7 +308,7 @@ def frames_track(test_size, predictor, img_list, config, signal, canvas):
             online_ids = []
             online_scores = []
             for t in online_targets:
-                # detectPos = Shape()
+                detectPos = Shape()
                 tlwh = t.tlwh
                 tid = t.track_id
                 cid = int(t.cls_id)
@@ -287,6 +324,7 @@ def frames_track(test_size, predictor, img_list, config, signal, canvas):
                     )
                     # 更新图像信息
                     canvas.update_shape(tid, frame_id, cid, tlwh, t.score, 'A')
+                    # shape.append(update_shape(tid, frame_id, cid, tlwh, t.score, 'A'))
             timer.toc()
             online_im = plot_tracking(
                 img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id, fps=1. / timer.average_time
@@ -306,7 +344,7 @@ def frames_track(test_size, predictor, img_list, config, signal, canvas):
     canvas.numFrames = len(resultImg)
     signal.emit("所有图片帧已处理完毕")
 
-    return resultImg
+    return resultImg  #, shape
         
 
 def image_demo(predictor, vis_folder, current_time, args):

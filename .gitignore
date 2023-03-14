@@ -140,7 +140,7 @@ cython_debug/
 # Visual Studio Code Editor
 .vscode/
 
-# python interpreting info
+
 Tracking/yolox.egg-info
 
 # output test file root
@@ -148,3 +148,10 @@ Output/
 
 # model parameter info 
 Tracking/weights
+
+#detection and tracking output files
+/output_img/*
+/Tracking/detect/*
+/runs/*
+/test_video.mp4
+/auto_video.py

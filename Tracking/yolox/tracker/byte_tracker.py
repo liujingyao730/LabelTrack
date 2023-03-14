@@ -6,6 +6,8 @@ import copy
 import torch
 import torch.nn.functional as F
 
+import sys
+sys.path.append("./Tracking")
 from .kalman_filter import KalmanFilter
 from yolox.tracker import matching
 from .basetrack import BaseTrack, TrackState
