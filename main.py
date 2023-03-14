@@ -477,11 +477,17 @@ class MyWindow(QMainWindow, QtStyleTools):
             savedPath = self.save_file_dialog(remove_ext=False)
         else:
             savedPath = self.save_file_dialog(remove_ext=False)
-
         if savedPath and self.currentLabel is 'CurveLanes':
-            self.save_curvelanes(savedPath)
+            try:
+                self.save_curvelanes(savedPath)
+            except ValueError:
+                return
+
         elif savedPath:
-            self.save_labels(savedPath)
+            try:
+                self.save_labels(savedPath)
+            except ValueError:
+                return
 
     def save_file_dialog(self, remove_ext=True, dirSave=False):
         if dirSave:
@@ -538,6 +544,8 @@ class MyWindow(QMainWindow, QtStyleTools):
             w = max_x - min_x
             h = max_y - min_y
             # TODO (@yinglong) if not select curcelanes will force exit
+            if shape.label not in utils.VISDRONE_CLASSES:
+                return
             classId = utils.VISDRONE_CLASSES.index(shape.label)
             if self.currentLabel == "Yolo":
                 savedPathPrefix = savedPath[:-4]
@@ -578,6 +586,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         # add the update current label function
         result_dict = {}
         for lane in self.canvas.shapes:
+            if lane.label in utils.VISDRONE_CLASSES:
+                return
             line = []
             for point in lane.points:
                 point_dict = {'y': str(int(point.y())),
