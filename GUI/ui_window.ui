@@ -509,6 +509,18 @@
     <string>E</string>
    </property>
   </action>
+  <action name="actionFixTrack">
+   <property name="icon">
+    <iconset>
+     <normaloff>resources/svg/annot.svg</normaloff>resources/svg/annot.svg</iconset>
+   </property>
+   <property name="text">
+    <string>手动修复跟踪</string>
+   </property>
+   <property name="shortcut">
+    <string>R</string>
+   </property>
+  </action>
   <action name="actionDict">
    <property name="icon">
     <iconset>

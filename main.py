@@ -122,7 +122,8 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.toolBarVertical.addAction(self.actionAnnot)
         self.toolBarVertical.addWidget(self.roadCombobox)
         self.toolBarVertical.addAction(self.actionAnnotRoad)
-        self.toolBarVertical.addAction(self.actionFilterArea) # 过滤区域
+        self.toolBarVertical.addAction(self.actionFilterArea)  # 过滤区域
+        self.toolBarVertical.addAction(self.actionFixTrack)  # 过滤区域
         self.toolBarVertical.addAction(self.actionDelete)
         self.toolBarVertical.addAction(self.actionLabelType)
         self.toolBarVertical.addSeparator()
@@ -137,7 +138,7 @@ class MyWindow(QMainWindow, QtStyleTools):
         self.actionLabelType.triggered.connect(self.set_label_type)
         self.actionTrack.triggered.connect(self.canvas.track_frame)  # 自动跟踪
         self.actionConfig.triggered.connect(self.modifyConfig)
-
+        self.actionFixTrack.triggered.connect(self.fix_track)
         # 输入帧数栏
         self.lineCurFrame.returnPressed.connect(self.jump_frame)
         # self.lineCurFrame.textChanged.connect(self.jump_frame)
@@ -605,6 +606,9 @@ class MyWindow(QMainWindow, QtStyleTools):
         with open(savedFramePath, 'w') as file:
             json.dump(result_dict, file)
             # print(str(result_dict))
+
+    def fix_track(self):
+        self.canvas.rectify_selected()
 
     # 删除选中的框
 
